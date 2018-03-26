@@ -43,6 +43,7 @@ struct registers {
 };
 
 extern struct registers regmap;
+extern uint8_t *pointer;
 
 #endif	/* REGISTERS_H */
 

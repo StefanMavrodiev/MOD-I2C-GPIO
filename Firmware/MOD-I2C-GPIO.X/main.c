@@ -26,6 +26,15 @@ struct registers regmap = {
     0x00        /* All push-pull mode */
 };
 
+/**
+ * @brief Make pointer.
+ * 
+ * A pointer used for I2C communication. On each read/write address will
+ * increase.
+ */
+uint8_t *pointer = &regmap.dir;
+enum RequestType req;
+
 /******************************************************************************/
 /* Main Program                                                               */
 /******************************************************************************/

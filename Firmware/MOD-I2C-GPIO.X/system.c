@@ -13,8 +13,6 @@
 
 #include "system.h"
 
-/* Refer to the device datasheet for information about available
-oscillator configurations. */
 void ConfigureOscillator(void)
 {
     // NOSC HFINTOSC with 2x PLL; NDIV 1; 

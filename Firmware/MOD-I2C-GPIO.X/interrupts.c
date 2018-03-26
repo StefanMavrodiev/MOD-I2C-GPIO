@@ -10,44 +10,78 @@
 
 #include <stdint.h>         /* For uint8_t definition */
 #include <stdbool.h>        /* For true/false definition */
+#include <pic16lf18324.h>
+
+#include "registers.h"
+#include "user.h"
 
 /******************************************************************************/
 /* Interrupt Routines                                                         */
 /******************************************************************************/
 
-/* Baseline devices don't have interrupts. Note that some PIC16's 
- * are baseline devices.  Unfortunately the baseline detection macro is 
- * _PIC12 */
-#ifndef _PIC12
-
+static inline void __MSSPInterrupt(void);
 void interrupt isr(void)
 {
-    /* This code stub shows general interrupt handling.  Note that these
-    conditional statements are not handled within 3 seperate if blocks.
-    Do not use a seperate if block for each interrupt flag to avoid run
-    time errors. */
+    if(PIR1bits.SSP1IF)
+        __MSSPInterrupt();
+}
 
-#if 0
+static inline void __MSSPInterrupt(void)
+{
+    volatile uint8_t data;
     
-    /* TODO Add interrupt routine code here. */
-
-    /* Determine which flag generated the interrupt */
-    if(<Interrupt Flag 1>)
+    /* Clear interrupt flag */
+    PIR1bits.SSP1IF = 0;
+    
+    /* Clear BF */
+    data = SSP1BUF;    
+    
+    if(SSP1STATbits.R_nW)
     {
-        <Interrupt Flag 1=0>; /* Clear Interrupt Flag 1 */
+        /**
+         * We've got READ from MASTER
+         */
+        if((SSP1STATbits.D_nA) && (SSP1CON2bits.ACKSTAT))
+        {
+            if (pointer == &regmap.dir + sizeof(struct registers))
+                pointer = &regmap.dir;
+            else
+                ++pointer;
+        }
+        else
+        {
+            /* Got read request */
+            SSPBUF = *pointer;
+        }
     }
-    else if (<Interrupt Flag 2>)
+    else if(!SSP1STATbits.D_nA)
     {
-        <Interrupt Flag 2=0>; /* Clear Interrupt Flag 2 */
+        /**
+         * Got write request.
+         * Next will be registry address
+         */
+        req = I2C_NEXT_IS_ADDR;
     }
+    
     else
     {
-        /* Unhandled interrupts */
+        /* Process data */
+        if(req == I2C_NEXT_IS_ADDR) {
+            if(data < sizeof(struct registers))
+            pointer = &regmap.dir + data;
+        } else {
+            *pointer = data;
+        }
+        
+        req = I2C_NEXT_IS_DATA;
+        
+        
     }
 
-#endif
-
+    /* Release SCL */
+    SSP1CON1bits.CKP = 1;
+    
 }
-#endif
+
 
 

@@ -9,7 +9,8 @@
 #endif
 
 #include <stdint.h>         /* For uint8_t definition */
-#include <stdbool.h>        /* For true/false definition */
+#include <stdbool.h>
+#include <pic16lf18324.h>        /* For true/false definition */
 
 #include "user.h"
 #include "registers.h"
@@ -33,11 +34,24 @@ void InitApp(void)
     __InitInterrupts();
 }
 
+/**
+ * @brief Initialize GPIO
+ * 
+ * Setup GPIO as follows:
+ *  - Analog functionality is disabled
+ *  - RC0 and RC1 as I2C functions
+ *  - RA5 open-drain output
+ *  - All other pins as I/O
+ */
 static void __InitGPIO(void)
 {
     /* Disable analog functions */
     ANSELA = 0x00;
     ANSELC = 0x00;
+    
+    /* Configure PPS function */
+    RC0PPS = 0x18;
+    RC1PPS = 0x19;
     
     /* Configure direction */
     TRISAbits.TRISA5 = 0;
@@ -49,18 +63,132 @@ static void __InitGPIO(void)
 
 static void __InitMSSP(void)
 {
+    /**
+     * Configure SSP1 STATUS REGISTER as follows:
+     *  - SMP: SPI Data Input Sample bit
+     *      0 = slew rate control enabled for High-Speed mode (400 kHz)
+     *  - CKE: SPI Clock Edge Select bit
+     *      1 = Enable input logic so that thresholds are compliant with SMBus specification
+     */
+    SSP1STAT = 0x40;
+    
+    /**
+     * Configure SSP1CON1: SSP1 CONTROL REGISTER 1 as follows:
+     *  - WCOL: Write Collision Detect bit (Transmit mode only)
+     *      0 = No collision
+     *  - SSPOV: Receive Overflow Indicator bit
+     *      0 = No overflow
+     *  - SSPEN: Synchronous Serial Port Enable bit
+     *      1 = Enables the serial port and configures the SDA and SCL pins as the source of the serial port pins
+     *  - CKP: Clock Polarity Select bit
+     *      1 = Enable clock
+     *  - SSPM: Synchronous Serial Port Mode Select bits
+     *      0110 = I2C Slave mode, 7-bit address
+     */
+    SSP1CON1 = 0x36;
+    
+    /**
+     * Configure SSP1CON2: SSP1 CONTROL REGISTER 2 as follows:
+     *  - GCEN: General Call Enable bit
+     *      0 = General call address disabled
+     *  - SEN: Start Condition Enable/Stretch Enable bit
+     *      1 = Clock stretching is enabled for both slave transmit and slave receive (stretch enabled)
+     */
+    SSP1CON2 = 0x01;
+    
+    /**
+     * Configure SSP1CON3: SSP1 CONTROL REGISTER 3 as follows:
+     *  - PCIE: Stop Condition Interrupt Enable bit
+     *      0 = Stop detection interrupts are disabled
+     *  - SCIE: Start Condition Interrupt Enable bit
+     *      0 = Start detection interrupts are disabled
+     *  - BOEN: Buffer Overwrite Enable bit
+     *      0 = SSPBUF is only updated when SSPOV is clear
+     *  - SDAHT: SDA Hold Time Selection bit
+     *      0 = Minimum of 100 ns hold time on SDA after the falling edge of SCL
+     *  - SBCDE: Slave Mode Bus Collision Detect Enable bit
+     *      0 = Slave bus collision interrupts are disabled
+     *  - AHEN: Address Hold Enable bit
+     *      0 = Address holding is disabled
+     *  - DHEN: Data Hold Enable bit
+     *      0 = Data holding is disabled
+     */
+    SSP1CON3 = 0x00;
+    
+    /* Set ADDRESS and MASK */
+    SSP1MSK = (I2C_SLAVE_MASK << 1);
+    SSP1ADD = (I2C_SLAVE_ADDRESS << 1);
+	
+    
     
 }
 
+/**
+ * @brief Configure interrupts
+ * 
+ * Enable individual peripheral interrupts.
+ */
 static void __InitInterrupts(void)
 {
+    /* Enable MSSP interrupts */
+    PIR1bits.SSP1IF = 0;
+    PIE1bits.SSP1IE = 1;    
+    
+    /* Enable Peripheral interrupts */
+    INTCONbits.PEIE = 1;
+    
+    /* Enable Global interrupts */
+    INTCONbits.GIE = 1;
     
 }
 
-
+/**
+ * @brief Set pin direction
+ * 
+ * Set direction of GPIO0 to GPIO7. Data is read from the global resister,
+ * so this should be called only when there is change in it.
+ * Pin direction is changed only if needed.
+ * 
+ * The algorithm is:
+ *  1.  The input data is e.g: 0xAB.
+ *      The upper four bit are for PORTC and the lower 4 for PORTA.
+ * 
+ *  2.  Bytes for PORTA are padded to match pin register:
+ *      | x | x | x | x | 3 | 2 | 1 | 0 |
+ *      ---------------------------------
+ *      | x | x | x | 3 | x | 2 | 1 | 0 |
+ * 
+ *  3.  Current direction is XORed with the new value. Then only bits with
+ *      change are cleared.
+ *      | x | x | x | 1 | x | 1 | 0 | 0 |   -> original value
+ *      | x | x | x | 1 | x | 0 | 1 | 0 |   -> desired value
+ *      ---------------------------------   
+ *      | x | x | x | 0 | x | 1 | 1 | 0 |   -> XOR
+ *      ---------------------------------
+ *      | x | x | x | 1 | x | 0 | 0 | 1 |   -> NOT
+ * 
+ *      | x | x | x | 1 | x | 1 | 0 | 0 |   -> original value
+ *      | x | x | x | 1 | x | 0 | 0 | 1 |   -> NOT value
+ *      ---------------------------------   
+ *      | x | x | x | 1 | x | 0 | 0 | 0 |   -> AND
+ * 
+ *  4.  Finally cleared value is OR-ed with the desired one"
+ *      | x | x | x | 1 | x | 0 | 0 | 0 |   -> AND value
+ *      | x | x | x | 1 | x | 0 | 1 | 0 |   -> desired value
+ *      --------------------------------
+ *      | x | x | x | 1 | x | 0 | 1 | 0 |   -> final value
+ * 
+ * This is a bit complicated, but this way we can guarantee that direction
+ * will not toggle if there is no change in direction register.
+ *      
+ */
 static inline void __SetGPIODirection(void)
 {
+    uint8_t isr = INTCON;
     uint8_t dir;
+    
+    /* Disable interrupts */
+    INTCONbits.GIE = 0;
     
     /* Configure PORTA */
     dir = regmap.dir & 0x07 | ((regmap.dir & 0x08) << 1);
@@ -73,11 +201,29 @@ static inline void __SetGPIODirection(void)
     
     TRISC &= ~((TRISC ^ dir) & 0x3C);
     TRISC |= dir;
+    
+    /* Restore interrupts */
+    INTCON = isr;
 }
 
+/**
+ * @brief Set output pin value
+ * 
+ * Set value of the pins configured as outputs. Values are read from the
+ * global register, so this should be called only when there is change in it.
+ * If pin is configured as input, this function do nothing.
+ * @see __SetGPIODirection
+ */
 static inline void __SetGPIOData(void)
 {
+    uint8_t isr = INTCON;
     uint8_t data;
+    
+    /* Disable interrupts */
+    INTCONbits.GIE = 0;
+    
+    /* Change only output */
+    regmap.data &= regmap.dir;
     
     /* Configure PORTA */
     data = regmap.data & 0x07 | ((regmap.data & 0x08) << 1);
@@ -88,213 +234,38 @@ static inline void __SetGPIOData(void)
     /* Configure PORTC */
     data = (regmap.data & 0xF0) >> 2;
     
+    
     LATC &= ~((LATC ^ data) & 0x3C);
     LATC |= data;
+    
+    /* Restore interrupts */
+    INTCON = isr;
 }
 
+/**
+ * @brief Read input pins
+ * 
+ * Read current value of the pins configured as inputs and stores them into
+ * the global register.
+ */
 static inline void __GetGPIOData(void)
 {
+    uint8_t isr = INTCON;
+    uint8_t data;
     
+    /* Disable interrupts */
+    INTCONbits.GIE = 0;
+    
+    /* Read PORTA */
+    data = (PORTA & 0x07) | ((PORTA & 0x10) >> 1);
+    
+    /* Read PORTC */
+    data |= (PORTC & 0x3C) << 2;
+    
+    /* Store new values */
+    regmap.data &= ~regmap.dir;
+    regmap.data |= data & regmap.dir;   
+            
+    /* Restore interrupts */
+    INTCON = isr;
 }
-
-#if 0
-
-typedef enum
-{
-    I2C1_SLAVE_WRITE_REQUEST,
-    I2C1_SLAVE_READ_REQUEST,
-    I2C1_SLAVE_WRITE_COMPLETED,
-    I2C1_SLAVE_READ_COMPLETED,
-} I2C1_SLAVE_DRIVER_STATUS;
-
-#define I2C1_SLAVE_DEFAULT_ADDRESS          0x08
-#endif
-#if 0
-
-
-#define I2C1_SLAVE_ADDRESS 0x08 
-#define I2C1_SLAVE_MASK    0x7F
-
-typedef enum
-{
-    SLAVE_NORMAL_DATA,
-    SLAVE_DATA_ADDRESS,
-} SLAVE_WRITE_DATA_TYPE;
-
-/**
- Section: Global Variables
-*/
-
-volatile uint8_t    I2C1_slaveWriteData      = 0x55;
-
-/**
- Section: Local Functions
-*/
-void I2C1_StatusCallback(I2C1_SLAVE_DRIVER_STATUS i2c_bus_state);
-
-
-/**
-  Prototype:        void I2C1_Initialize(void)
-  Input:            none
-  Output:           none
-  Description:      I2C1_Initialize is an
-                    initialization routine that takes inputs from the GUI.
-  Comment:          
-  Usage:            I2C1_Initialize();
-
-*/
-void I2C1_Initialize(void)
-{
-    // initialize the hardware
-    // R_nW write_noTX; P stopbit_notdetected; S startbit_notdetected; BF RCinprocess_TXcomplete; SMP High Speed; UA dontupdate; CKE disabled; D_nA lastbyte_address; 
-    SSP1STAT = 0x00;
-    // SSPEN enabled; WCOL no_collision; CKP disabled; SSPM 7 Bit Polling; SSPOV no_overflow; 
-    SSP1CON1 = 0x26;
-    // ACKEN disabled; GCEN disabled; PEN disabled; ACKDT acknowledge; RSEN disabled; RCEN disabled; ACKSTAT received; SEN enabled; 
-    SSP1CON2 = 0x01;
-    // ACKTIM ackseq; SBCDE disabled; BOEN disabled; SCIE disabled; PCIE disabled; DHEN disabled; SDAHT 100ns; AHEN disabled; 
-    SSP1CON3 = 0x00;
-    // SSP1MSK 127; 
-    SSP1MSK = (I2C1_SLAVE_MASK << 1);  // adjust UI mask for R/nW bit            
-    // SSP1ADD 8; 
-    SSP1ADD = (I2C1_SLAVE_ADDRESS << 1);  // adjust UI address for R/nW bit
-	
-    // clear the slave interrupt flag
-    PIR1bits.SSP1IF = 0;
-    // enable the master interrupt
-    PIE1bits.SSP1IE = 1;
-
-}
-
-void I2C1_ISR ( void )
-{
-    uint8_t     i2c_data                = 0x55;
-
-
-    // NOTE: The slave driver will always acknowledge
-    //       any address match.
-
-    PIR1bits.SSP1IF = 0;        // clear the slave interrupt flag
-    i2c_data        = SSP1BUF;  // read SSPBUF to clear BF
-    if(1 == SSP1STATbits.R_nW)
-    {
-        if((1 == SSP1STATbits.D_nA) && (1 == SSP1CON2bits.ACKSTAT))
-        {
-            // callback routine can perform any post-read processing
-            I2C1_StatusCallback(I2C1_SLAVE_READ_COMPLETED);
-        }
-        else
-        {
-            // callback routine should write data into SSPBUF
-            I2C1_StatusCallback(I2C1_SLAVE_READ_REQUEST);
-        }
-    }
-    else if(0 == SSP1STATbits.D_nA)
-    {
-        // this is an I2C address
-
-        // callback routine should prepare to receive data from the master
-        I2C1_StatusCallback(I2C1_SLAVE_WRITE_REQUEST);
-    }
-    else
-    {
-        I2C1_slaveWriteData   = i2c_data;
-
-        // callback routine should process I2C1_slaveWriteData from the master
-        I2C1_StatusCallback(I2C1_SLAVE_WRITE_COMPLETED);
-    }
-
-    SSP1CON1bits.CKP    = 1;    // release SCL
-
-} // end I2C1_ISR()
-
-
-
-/**
-
-    Example implementation of the callback
-
-    This slave driver emulates an EEPROM Device.
-    Sequential reads from the EEPROM will return data at the next
-    EEPROM address.
-
-    Random access reads can be performed by writing a single byte
-    EEPROM address, followed by 1 or more reads.
-
-    Random access writes can be performed by writing a single byte
-    EEPROM address, followed by 1 or more writes.
-
-    Every read or write will increment the internal EEPROM address.
-
-    When the end of the EEPROM is reached, the EEPROM address will
-    continue from the start of the EEPROM.
-*/
-
-void I2C1_StatusCallback(I2C1_SLAVE_DRIVER_STATUS i2c_bus_state)
-{
-    static uint8_t EEPROM_Buffer[] =
-    {
-        0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f,
-        0x10,0x11,0x12,0x13,0x14,0x15,0x16,0x17,0x18,0x19,0x1a,0x1b,0x1c,0x1d,0x1e,0x1f,
-        0x20,0x21,0x22,0x23,0x24,0x25,0x26,0x27,0x28,0x29,0x2a,0x2b,0x2c,0x2d,0x2e,0x2f,
-        0x30,0x31,0x32,0x33,0x34,0x35,0x36,0x37,0x38,0x39,0x3a,0x3b,0x3c,0x3d,0x3e,0x3f,
-        0x40,0x41,0x42,0x43,0x44,0x45,0x46,0x47,0x48,0x49,0x4a,0x4b,0x4c,0x4d,0x4e,0x4f,
-        0x50,0x51,0x52,0x53,0x54,0x55,0x56,0x57,0x58,0x59,0x5a,0x5b,0x5c,0x5d,0x5e,0x5f,
-        0x60,0x61,0x62,0x63,0x64,0x65,0x66,0x67,0x68,0x69,0x6a,0x6b,0x6c,0x6d,0x6e,0x6f,
-        0x70,0x71,0x72,0x73,0x74,0x75,0x76,0x77,0x78,0x79,0x7a,0x7b,0x7c,0x7d,0x7e,0x7f
-    };
-
-    static uint8_t eepromAddress    = 0;
-    static uint8_t slaveWriteType   = SLAVE_NORMAL_DATA;
-
-
-    switch (i2c_bus_state)
-    {
-        case I2C1_SLAVE_WRITE_REQUEST:
-            // the master will be sending the eeprom address next
-            slaveWriteType  = SLAVE_DATA_ADDRESS;
-            break;
-
-
-        case I2C1_SLAVE_WRITE_COMPLETED:
-
-            switch(slaveWriteType)
-            {
-                case SLAVE_DATA_ADDRESS:
-                    eepromAddress   = I2C1_slaveWriteData;
-                    break;
-
-
-                case SLAVE_NORMAL_DATA:
-                default:
-                    // the master has written data to store in the eeprom
-                    EEPROM_Buffer[eepromAddress++]    = I2C1_slaveWriteData;
-                    if(sizeof(EEPROM_Buffer) <= eepromAddress)
-                    {
-                        eepromAddress = 0;    // wrap to start of eeprom page
-                    }
-                    break;
-
-            } // end switch(slaveWriteType)
-
-            slaveWriteType  = SLAVE_NORMAL_DATA;
-            break;
-
-        case I2C1_SLAVE_READ_REQUEST:
-            SSP1BUF = EEPROM_Buffer[eepromAddress++];
-            if(sizeof(EEPROM_Buffer) <= eepromAddress)
-            {
-                eepromAddress = 0;    // wrap to start of eeprom page
-            }
-            break;
-
-        case I2C1_SLAVE_READ_COMPLETED:
-        default:;
-
-    } // end switch(i2c_bus_state)
-
-}
-
-
-#endif
-
