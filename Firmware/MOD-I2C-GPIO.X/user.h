@@ -2,6 +2,9 @@
 /* User Level #define Macros                                                  */
 /******************************************************************************/
 
+#define DEVICE_ID           0x43
+#define FIRMWARE_VERSION    0x01
+
 #define I2C_SLAVE_ADDRESS   0x3B
 #define I2C_SLAVE_MASK      0x7F
 
@@ -14,5 +17,12 @@ enum RequestType {
 };
 
 void InitApp(void);         /* I/O and Peripheral Initialization */
+
+void SetGPIODirection(void);
+
+void SetGPIOData(void);
+void GetGPIOData(void);
+
+void SetGPIOPullUp(void);
 
 extern enum RequestType req;

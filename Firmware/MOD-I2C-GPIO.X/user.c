@@ -9,8 +9,8 @@
 #endif
 
 #include <stdint.h>         /* For uint8_t definition */
-#include <stdbool.h>
-#include <pic16lf18324.h>        /* For true/false definition */
+#include <stdbool.h>        /* For true/false definition */
+#include <pic16lf18324.h>        
 
 #include "user.h"
 #include "registers.h"
@@ -23,9 +23,32 @@ static void __InitGPIO(void);
 static void __InitMSSP(void);
 static void __InitInterrupts(void);
 
-static inline void __SetGPIODirection(void);
-static inline void __SetGPIOData(void);
-static inline void __GetGPIOData(void);
+#if 0
+static void __SetRegister(volatile uint8_t *reg, uint8_t *data)
+{
+    uint8_t isr = INTCON;
+    uint8_t temp;
+    
+    /* Disable interrupts */
+    INTCONbits.GIE = 0;
+    
+    /* Configure SFR */
+    temp = *data & 0x07 | ((*data & 0x08) << 1);
+    *reg &= ~((TRISA ^ temp) & 0x17);
+    *reg |= temp;
+    
+    /* Configure SFR + 2 */
+    reg += 2;
+    temp = (*data & 0xF0) >> 2;
+    
+    *reg &= ~((*reg ^ temp) & 0x3C);
+    *reg |= temp;
+    
+    /* Restore interrupts */
+    INTCON = isr;    
+}
+#endif
+
 
 void InitApp(void)
 {
@@ -55,12 +78,28 @@ static void __InitGPIO(void)
     
     /* Configure direction */
     TRISAbits.TRISA5 = 0;
-    __SetGPIODirection();
+    SetGPIODirection();
+    
+    /* Configure pull-ups */
+    SetGPIOPullUp();    
     
     /* Configure value */
+    LATAbits.LATA5 = 0;
+    SetGPIOData();
+    
+    /* Read initial value */
+    GetGPIOData();
     
 }
 
+/**
+ * @brief Initialize I2C controller
+ * 
+ * Initialize MSSP as I2C slave device. It should be capable of 400kHz
+ * operation.
+ * 
+ * @see I2C_SLAVE_ADDRESS
+ */
 static void __InitMSSP(void)
 {
     /**
@@ -117,9 +156,7 @@ static void __InitMSSP(void)
     
     /* Set ADDRESS and MASK */
     SSP1MSK = (I2C_SLAVE_MASK << 1);
-    SSP1ADD = (I2C_SLAVE_ADDRESS << 1);
-	
-    
+    SSP1ADD = (I2C_SLAVE_ADDRESS << 1);    
     
 }
 
@@ -180,9 +217,12 @@ static void __InitInterrupts(void)
  * 
  * This is a bit complicated, but this way we can guarantee that direction
  * will not toggle if there is no change in direction register.
+ * 
+ * @note Setting this input pin with enabled pull-up will disable pull-up.
+ * @see SetGPIOPullUp()
  *      
  */
-static inline void __SetGPIODirection(void)
+void SetGPIODirection(void)
 {
     uint8_t isr = INTCON;
     uint8_t dir;
@@ -202,6 +242,9 @@ static inline void __SetGPIODirection(void)
     TRISC &= ~((TRISC ^ dir) & 0x3C);
     TRISC |= dir;
     
+    /* Update pull-ups */
+    SetGPIOPullUp();
+    
     /* Restore interrupts */
     INTCON = isr;
 }
@@ -214,7 +257,7 @@ static inline void __SetGPIODirection(void)
  * If pin is configured as input, this function do nothing.
  * @see __SetGPIODirection
  */
-static inline void __SetGPIOData(void)
+void SetGPIOData(void)
 {
     uint8_t isr = INTCON;
     uint8_t data;
@@ -248,7 +291,7 @@ static inline void __SetGPIOData(void)
  * Read current value of the pins configured as inputs and stores them into
  * the global register.
  */
-static inline void __GetGPIOData(void)
+void GetGPIOData(void)
 {
     uint8_t isr = INTCON;
     uint8_t data;
@@ -268,4 +311,38 @@ static inline void __GetGPIOData(void)
             
     /* Restore interrupts */
     INTCON = isr;
+}
+
+/**
+ * @brief Sets pull-ups
+ * 
+ * Enable/disable internal weak pull-ups. If pins is configured as output
+ * setting this value has no effect.
+ */
+void SetGPIOPullUp(void)
+{
+    uint8_t isr = INTCON;
+    uint8_t pullup;
+    
+    /* Disable interrupts */
+    INTCONbits.GIE = 0;
+    
+    /* Change only inputs */
+    regmap.pullup &= regmap.dir;
+    
+    /* Configure PORTA */
+    pullup = regmap.pullup & 0x07 | ((regmap.pullup & 0x08) << 1);
+    
+    WPUA &= ~((WPUA ^ pullup) & 0x17);
+    WPUA |= pullup;
+    
+    /* Configure PORTC */
+    pullup = (regmap.data & 0xF0) >> 2;
+    
+    
+    WPUC &= ~((WPUC ^ pullup) & 0x3C);
+    WPUC |= pullup;
+    
+    /* Restore interrupts */
+    INTCON = isr;        
 }

@@ -20,10 +20,12 @@
 /******************************************************************************/
 
 struct registers regmap = {
-    0x00,       /* All inputs */
-    0x00,       /* Data */
-    0xFF,       /* All pullups enabled */
-    0x00        /* All push-pull mode */
+    0x00,                       /* All inputs */
+    0x00,                       /* Data */
+    0xFF,                       /* All pullups enabled */
+    0x00,                       /* All push-pull mode */
+    DEVICE_ID,
+    FIRMWARE_VERSION,
 };
 
 /**

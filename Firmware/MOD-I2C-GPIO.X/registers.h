@@ -40,6 +40,32 @@ struct registers {
      * Default value: 0x00
      */
     uint8_t mode;
+    
+    /**
+     * @brief Input threshold control
+     * 
+     * Set input buffer type. Input port can be configured either as Schmitt 
+     * Trigger or TTL. 
+     * 
+     * Values can be:
+     *  1 = ST input
+     *  0 = TTL input
+     */
+    uint8_t buffer;
+    
+    /**
+     * Set read-only register for device id
+     * 
+     * @see DEVICE_ID
+     */
+    uint8_t device;
+    
+    /**
+     * Set read-only register for firmware version
+     * 
+     * @see FIRMWARE_VER
+     */
+    uint8_t firmware;
 };
 
 extern struct registers regmap;

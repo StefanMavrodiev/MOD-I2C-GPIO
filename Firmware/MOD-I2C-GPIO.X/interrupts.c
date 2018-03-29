@@ -43,7 +43,7 @@ static inline void __MSSPInterrupt(void)
          */
         if((SSP1STATbits.D_nA) && (SSP1CON2bits.ACKSTAT))
         {
-            if (pointer == &regmap.dir + sizeof(struct registers))
+            if (pointer >= &regmap.firmware)
                 pointer = &regmap.dir;
             else
                 ++pointer;
@@ -70,18 +70,14 @@ static inline void __MSSPInterrupt(void)
             if(data < sizeof(struct registers))
             pointer = &regmap.dir + data;
         } else {
-            *pointer = data;
+            if(pointer != &regmap.device && pointer != &regmap.firmware)
+                *pointer = data;
         }
         
-        req = I2C_NEXT_IS_DATA;
-        
+        req = I2C_NEXT_IS_DATA;        
         
     }
 
     /* Release SCL */
-    SSP1CON1bits.CKP = 1;
-    
+    SSP1CON1bits.CKP = 1;    
 }
-
-
-
