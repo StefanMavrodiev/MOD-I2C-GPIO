@@ -7,6 +7,20 @@
  */
 struct registers {
     /**
+     * Set read-only register for device id
+     * 
+     * @see DEVICE_ID
+     */
+    uint8_t device;
+    
+    /**
+     * Set read-only register for firmware version
+     * 
+     * @see FIRMWARE_VER
+     */
+    uint8_t firmware;
+    
+    /**
      * Set direction. Can be:
      * 1 - output
      * 0 - input
@@ -27,7 +41,7 @@ struct registers {
      * 1 - Enabled PU
      * 0 - Disabled PU
      * 
-     * Default value: 0xFF
+     * Default value: 0x00
      */
     uint8_t pullup;
     
@@ -50,22 +64,12 @@ struct registers {
      * Values can be:
      *  1 = ST input
      *  0 = TTL input
+     * 
+     * Default value: 0xFF
      */
     uint8_t buffer;
     
-    /**
-     * Set read-only register for device id
-     * 
-     * @see DEVICE_ID
-     */
-    uint8_t device;
     
-    /**
-     * Set read-only register for firmware version
-     * 
-     * @see FIRMWARE_VER
-     */
-    uint8_t firmware;
 };
 
 extern struct registers regmap;

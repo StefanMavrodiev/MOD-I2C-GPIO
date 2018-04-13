@@ -1,0 +1,78 @@
+\documentclass{article}
+
+%
+% Import packages
+% ===============
+
+\usepackage[T1]{fontenc}
+\usepackage{bytefield}
+\usepackage{multicol}
+\usepackage{geometry}
+\usepackage{lipsum}
+\usepackage{float}
+
+%
+% Change default font
+% ===================
+\renewcommand{\familydefault}{\sfdefault}
+
+\geometry{
+	a4paper,
+	total={170mm,257mm},
+	left=20mm,
+	top=20mm,
+}
+
+
+\title{MOD-I2C-GPIO}
+\author{Olimex Ltd.}
+
+\begin{document}
+	\maketitle
+	\tableofcontents
+	\pagebreak
+	
+	\section{Description}
+	\begin{multicols}{2}
+		\lipsum
+	\end{multicols}
+	
+
+	\section{Memory map}
+	\begin{multicols}{2}
+	The device has memory map as shown on Figure \ref{fig:mem_map}.
+	\end{multicols}
+	\begin{figure}[H]
+		\centering
+		\begin{bytefield}[
+			bitheight=2\baselineskip]{8}
+			\begin{rightwordgroup}{Read-only}
+				\bitbox[]{4}{\texttt{0x00}} & \bitbox{32}{Device ID} \\
+				\bitbox[]{4}{\texttt{0x01}} & \bitbox{32}{Firmware version}
+			\end{rightwordgroup} \\
+				\bitbox[]{4}{\texttt{0x02}} & \bitbox{32}{Data direction} \\
+				\bitbox[]{4}{\texttt{0x03}} & \bitbox{32}{Input/Output data} \\
+				\bitbox[]{4}{\texttt{0x04}} & \bitbox{32}{Pull-up enable} \\
+				\bitbox[]{4}{\texttt{0x05}} & \bitbox{32}{Output mode} \\
+				\bitbox[]{4}{\texttt{0x06}} & \bitbox{32}{Input buffer mode} \\
+				\bitbox[]{4}{\texttt{0x07}} & \bitbox{32}{Input slew-rate control} \\
+				\bitbox[]{4}{\texttt{0x08}} & \bitbox{32}{Interrupt enable} \\
+				\bitbox[]{4}{\texttt{0x09}} & \bitbox{32}{Interrupt sense high byte} \\
+				\bitbox[]{4}{\texttt{0x0A}} & \bitbox{32}{Interrupt sense low byte} \\
+			\begin{rightwordgroup}{Read-only}
+				\bitbox[]{4}{\texttt{0x0B}} & \bitbox{32}{Interrupt status}
+			\end{rightwordgroup} 
+				
+		\end{bytefield}
+		\caption{Memory layout}
+		\label{fig:mem_map}
+	\end{figure}
+	
+	\section{Device registers}
+	sdasd
+	\subsection{Device ID}
+	sdsd
+
+	
+	
+\end{document}

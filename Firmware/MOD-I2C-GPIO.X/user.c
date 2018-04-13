@@ -219,34 +219,36 @@ static void __InitInterrupts(void)
  * will not toggle if there is no change in direction register.
  * 
  * @note Setting this input pin with enabled pull-up will disable pull-up.
+ * @note When changing from input to output, value will be set as 0.
  * @see SetGPIOPullUp()
+ * @see SetGPIOData()
  *      
  */
 void SetGPIODirection(void)
 {
-    uint8_t isr = INTCON;
     uint8_t dir;
     
-    /* Disable interrupts */
-    INTCONbits.GIE = 0;
-    
     /* Configure PORTA */
-    dir = regmap.dir & 0x07 | ((regmap.dir & 0x08) << 1);
+    dir = ~(regmap.dir & 0x07 | ((regmap.dir & 0x08) << 1));
     
     TRISA &= ~((TRISA ^ dir) & 0x17);
     TRISA |= dir;
     
     /* Configure PORTC */
-    dir = (regmap.dir & 0xF0) >> 2;
+    dir = ~((regmap.dir & 0xF0) >> 2);
     
     TRISC &= ~((TRISC ^ dir) & 0x3C);
     TRISC |= dir;
     
-    /* Update pull-ups */
-    SetGPIOPullUp();
+    // TODO: On change from input to output clear data value.
+    // TODO: On change from input to output disable pull-up
     
-    /* Restore interrupts */
-    INTCON = isr;
+//    /* Update data */
+//    SetGPIOData();
+//    
+//    /* Update pull-ups */
+//    SetGPIOPullUp();
+
 }
 
 /**
@@ -255,15 +257,11 @@ void SetGPIODirection(void)
  * Set value of the pins configured as outputs. Values are read from the
  * global register, so this should be called only when there is change in it.
  * If pin is configured as input, this function do nothing.
- * @see __SetGPIODirection
+ * @see SetGPIODirection
  */
 void SetGPIOData(void)
 {
-    uint8_t isr = INTCON;
     uint8_t data;
-    
-    /* Disable interrupts */
-    INTCONbits.GIE = 0;
     
     /* Change only output */
     regmap.data &= regmap.dir;
@@ -277,12 +275,8 @@ void SetGPIOData(void)
     /* Configure PORTC */
     data = (regmap.data & 0xF0) >> 2;
     
-    
     LATC &= ~((LATC ^ data) & 0x3C);
     LATC |= data;
-    
-    /* Restore interrupts */
-    INTCON = isr;
 }
 
 /**
@@ -293,11 +287,7 @@ void SetGPIOData(void)
  */
 void GetGPIOData(void)
 {
-    uint8_t isr = INTCON;
     uint8_t data;
-    
-    /* Disable interrupts */
-    INTCONbits.GIE = 0;
     
     /* Read PORTA */
     data = (PORTA & 0x07) | ((PORTA & 0x10) >> 1);
@@ -308,9 +298,6 @@ void GetGPIOData(void)
     /* Store new values */
     regmap.data &= ~regmap.dir;
     regmap.data |= data & regmap.dir;   
-            
-    /* Restore interrupts */
-    INTCON = isr;
 }
 
 /**
@@ -321,11 +308,7 @@ void GetGPIOData(void)
  */
 void SetGPIOPullUp(void)
 {
-    uint8_t isr = INTCON;
     uint8_t pullup;
-    
-    /* Disable interrupts */
-    INTCONbits.GIE = 0;
     
     /* Change only inputs */
     regmap.pullup &= regmap.dir;
@@ -341,8 +324,5 @@ void SetGPIOPullUp(void)
     
     
     WPUC &= ~((WPUC ^ pullup) & 0x3C);
-    WPUC |= pullup;
-    
-    /* Restore interrupts */
-    INTCON = isr;        
+    WPUC |= pullup;      
 }

@@ -50,3 +50,11 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+/Firmware/MOD-I2C-GPIO.X/nbproject/private/
+/Firmware/MOD-I2C-GPIO.X/build/XC8_PIC16F18324/
+/Firmware/MOD-I2C-GPIO.X/dist/XC8_PIC16F18324/
+/Firmware/MOD-I2C-GPIO-BL.X/nbproject/private/
+/Firmware/MOD-I2C-GPIO.X/build/XC8_PIC16LF18324/
+/Firmware/MOD-I2C-GPIO.X/dist/XC8_PIC16LF18324/
+/Firmware/MOD-I2C-GPIO-BL.X/build/XC8_PIC16LF18324/
+/Firmware/MOD-I2C-GPIO-BL.X/dist/XC8_PIC16LF18324/

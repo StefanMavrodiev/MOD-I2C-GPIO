@@ -26,6 +26,9 @@ void interrupt isr(void)
         __MSSPInterrupt();
 }
 
+/**
+ * @brief Handle MSSP interrupts
+ */
 static inline void __MSSPInterrupt(void)
 {
     volatile uint8_t data;
@@ -43,8 +46,8 @@ static inline void __MSSPInterrupt(void)
          */
         if((SSP1STATbits.D_nA) && (SSP1CON2bits.ACKSTAT))
         {
-            if (pointer >= &regmap.firmware)
-                pointer = &regmap.dir;
+            if (pointer >= (uint8_t *)&regmap + sizeof(regmap))
+                pointer = (uint8_t *)&regmap;
             else
                 ++pointer;
         }
@@ -68,7 +71,7 @@ static inline void __MSSPInterrupt(void)
         /* Process data */
         if(req == I2C_NEXT_IS_ADDR) {
             if(data < sizeof(struct registers))
-            pointer = &regmap.dir + data;
+            pointer = (uint8_t *)&regmap + data;
         } else {
             if(pointer != &regmap.device && pointer != &regmap.firmware)
                 *pointer = data;
