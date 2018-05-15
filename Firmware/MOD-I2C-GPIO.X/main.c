@@ -20,18 +20,6 @@
 /* User Global Variable Declaration                                           */
 /******************************************************************************/
 
-struct registers regmap = {
-    DEVICE_ID,
-    FIRMWARE_VERSION,
-    0xFF,                       /* All inputs */
-    0x00,                       /* Data */
-    0xFF,                       /* All pull-ups enabled */
-    0x00,                       /* All push-pull mode */
-    0xFF,                       /* All ST enabled inputs */
-    0xFF,                       /* Slew rate is limited */
-    0x00,                       /* All interrupts are disabled */
-};
-
 /**
  * @brief Make pointers.
  * 
@@ -39,9 +27,10 @@ struct registers regmap = {
  * increase. If requested register is outside regmap, the pointer will 
  * retrun dummy byte.
  */
+struct registers regmap;
+
 uint8_t *pointer = (uint8_t *)&regmap;
 uint8_t dummy = 0xFF;
-
 
 struct registers current;
 enum RequestType req;
@@ -56,8 +45,21 @@ void main(void)
     ConfigureOscillator();
 #endif
 
+    regmap.device = DEVICE_ID;
+    regmap.firmware = FIRMWARE_VERSION;
+    regmap.dir = 0xFF;                      /* All inputs */
+    regmap.data = 0x00;                     /* Data */
+    regmap.pullup = 0xFF;                   /* All pull-ups enabled */
+    regmap.mode = 0x00;                     /* All push-pull mode */
+    regmap.buffer = 0xFF;                   /* All ST enabled inputs */
+    regmap.slew = 0xFF;                     /* Slew rate is limited */
+    regmap.interrupt_enable = 0x00;         /* All interrupts are disabled */
+    regmap.interrupt_sense = 0x0000;
+    regmap.interrupt_sense = 0x00;
+
     /* Initialize I/O and Peripherals for application */
     InitApp();
+    
     
     /* Copy default values to current settings */
     memcpy(&current, &regmap, sizeof(struct registers));

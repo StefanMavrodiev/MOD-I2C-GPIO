@@ -123,6 +123,7 @@ static inline void __MSSPInterrupt(void)
         {
             /* Got read request */
             SSPBUF = *pointer;
+//            SSPBUF = 0xAA;
             
             /* Clear pending INT on INTERRUPT_STATUS read */
             if(pointer == &regmap.interrupt_status) {

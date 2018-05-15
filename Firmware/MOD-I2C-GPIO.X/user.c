@@ -142,7 +142,7 @@ static void __InitGPIO(void)
     ODCONAbits.ODCA5 = 1;
     
     /* Configure value */
-    LATAbits.LATA5 = 0;
+    INT_DEASSERT();
     
     SetGPIODirection();
     SetGPIOData();
