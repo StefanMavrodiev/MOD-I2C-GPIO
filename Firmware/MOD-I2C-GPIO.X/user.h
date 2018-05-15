@@ -8,6 +8,9 @@
 #define I2C_SLAVE_ADDRESS   0x3B
 #define I2C_SLAVE_MASK      0x7F
 
+#define INT_ASSERT()        LATAbits.LATA5 = 0
+#define INT_DEASSERT()      LATAbits.LATA5 = 1   
+
 /******************************************************************************/
 /* User Function Prototypes                                                   */
 /******************************************************************************/
@@ -24,5 +27,8 @@ void SetGPIOData(void);
 void GetGPIOData(void);
 
 void SetGPIOPullUp(void);
+void SetGPIOMode(void);
+void SetGPIOBuffer(void);
+void SetGPIOSlew(void);
 
 extern enum RequestType req;

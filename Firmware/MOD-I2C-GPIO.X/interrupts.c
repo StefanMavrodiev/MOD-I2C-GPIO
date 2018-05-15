@@ -20,12 +20,80 @@
 /******************************************************************************/
 
 static inline void __MSSPInterrupt(void);
+static inline void __IOCInterrupt(void);
+
 void interrupt isr(void)
 {
     if(PIR1bits.SSP1IF)
         __MSSPInterrupt();
+    else if(PIR0bits.IOCIF)
+        __IOCInterrupt();
 }
 
+static inline void __IOCInterrupt(void)
+{
+    volatile uint8_t ioca;
+    volatile uint8_t iocc;
+    volatile uint8_t data;
+    volatile uint8_t ioc;
+    volatile uint8_t mask;
+    volatile uint8_t i;    
+    
+    /* Clear interrupt flag */
+    PIR0bits.IOCIF = 0;
+    
+    /* Store current interrupt flags */
+    ioca = IOCAF;
+    iocc = IOCCF;
+    
+    /* Read pin inputs */
+    data = (PORTA & 0x07) | ((PORTA & 0x10) >> 1);
+    data |= (PORTC & 0x3C) << 2;
+    
+    /* Mask data */
+    regmap.data &= ~(regmap.dir);
+    regmap.data |= data & regmap.dir;
+    
+    /* Map IOCxF to regmap */
+    ioc = (ioca & 0x07) | ((ioca & 0x10) >> 1);
+    ioc |= (iocc & 0x3C) << 2;
+    
+    /* Check for INT request */
+    mask = ioc & regmap.interrupt_enable;
+    if (mask) {
+        if (regmap.data & mask) {
+            
+            /**
+             * Rising edge
+             * Check if sense is correct
+             */
+            for(i = 0; i < 8; i++) {
+                if(regmap.interrupt_sense & (0x02 << i*2)) {
+                    regmap.interrupt_status |= (0x01 << i);
+                    INT_ASSERT();
+                }
+            }
+            
+        } else {
+            
+            /**
+             * Falling edge
+             * Check if sense is correct
+             */
+            for(i = 0; i < 8; i++) {
+                if(regmap.interrupt_sense & (0x01 << i*2)) {
+                    regmap.interrupt_status |= (0x01 << i);
+                    INT_ASSERT();
+                }
+            }
+            
+        }
+    }
+    
+    /* Clear IOC flags */
+    IOCAF &= ~(ioca);
+    IOCCF &= ~(iocc);           
+}
 /**
  * @brief Handle MSSP interrupts
  */
@@ -47,7 +115,7 @@ static inline void __MSSPInterrupt(void)
         if((SSP1STATbits.D_nA) && (SSP1CON2bits.ACKSTAT))
         {
             if (pointer >= (uint8_t *)&regmap + sizeof(regmap))
-                pointer = (uint8_t *)&regmap;
+                pointer = &dummy;
             else
                 ++pointer;
         }
@@ -55,6 +123,13 @@ static inline void __MSSPInterrupt(void)
         {
             /* Got read request */
             SSPBUF = *pointer;
+            
+            /* Clear pending INT on INTERRUPT_STATUS read */
+            if(pointer == &regmap.interrupt_status) {
+                regmap.interrupt_status = 0x00;
+                INT_DEASSERT();
+            }
+                
         }
     }
     else if(!SSP1STATbits.D_nA)
@@ -73,7 +148,9 @@ static inline void __MSSPInterrupt(void)
             if(data < sizeof(struct registers))
             pointer = (uint8_t *)&regmap + data;
         } else {
-            if(pointer != &regmap.device && pointer != &regmap.firmware)
+            if(pointer != &regmap.device && 
+                    pointer != &regmap.firmware &&
+                    pointer != &regmap.interrupt_status)
                 *pointer = data;
         }
         

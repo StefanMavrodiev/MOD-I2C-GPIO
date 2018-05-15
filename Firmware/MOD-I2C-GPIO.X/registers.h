@@ -22,10 +22,10 @@ struct registers {
     
     /**
      * Set direction. Can be:
-     * 1 - output
-     * 0 - input
+     * 1 - input
+     * 0 - output
      * 
-     * Default value: 0x00
+     * Default value: 0xFF
      */
     uint8_t dir;
     
@@ -41,7 +41,7 @@ struct registers {
      * 1 - Enabled PU
      * 0 - Disabled PU
      * 
-     * Default value: 0x00
+     * Default value: 0xFF
      */
     uint8_t pullup;
     
@@ -62,18 +62,80 @@ struct registers {
      * Trigger or TTL. 
      * 
      * Values can be:
-     *  1 = ST input
-     *  0 = TTL input
+     *  1 - ST input
+     *  0 - TTL input
      * 
      * Default value: 0xFF
      */
     uint8_t buffer;
+    
+    /**
+     * @brief Slew rate control
+     * 
+     * Sets input slew rate.
+     * 
+     * Values can be:
+     *  1 - Port pin slew rate is limited
+     *  0 - Port pin slews at maximum rate
+     * 
+     * Default value: 0xFF
+     */
+    uint8_t slew;
+    
+    
+    /**
+     * @brief Enable interrupt generation
+     * 
+     * Values can be:
+     *  1 - Enables INT generation
+     *  0 - Disables INT generation
+     * 
+     * Default value: 0x00
+     */
+    uint8_t interrupt_enable;
+    
+    union {
+        uint16_t interrupt_sense;
+        struct {
+            /**
+             * @brief Configure interrupt sense for GPIO0 - GPIO3
+             * 
+             * Values can be:
+             *  0b00 - No edge detect
+             *  0b01 - Falling edge
+             *  0b10 - Rising edge
+             *  0b11 - Both
+             * 
+             * Default value: 0x00
+             */
+            uint8_t interrupt_sense_lo;
+            
+            /**
+             * @brief Configure interrupt sense for GPIO4 - GPIO7
+             * 
+             * Values can be:
+             *  0b00 - No edge detect
+             *  0b01 - Falling edge
+             *  0b10 - Rising edge
+             *  0b11 - Both
+             * 
+             * Default value: 0x00
+             */
+            uint8_t interrupt_sense_hi;
+        };
+    };
+    
+    /**
+     * @brief Read interrupt status
+     */
+    uint8_t interrupt_status;
     
     
 };
 
 extern struct registers regmap;
 extern uint8_t *pointer;
+extern uint8_t dummy;
 
 #endif	/* REGISTERS_H */
 

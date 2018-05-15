@@ -23,19 +23,24 @@
 struct registers regmap = {
     DEVICE_ID,
     FIRMWARE_VERSION,
-    0x00,                       /* All inputs */
+    0xFF,                       /* All inputs */
     0x00,                       /* Data */
-    0x00,                       /* All pullups disabled */
+    0xFF,                       /* All pull-ups enabled */
     0x00,                       /* All push-pull mode */
+    0xFF,                       /* All ST enabled inputs */
+    0xFF,                       /* Slew rate is limited */
+    0x00,                       /* All interrupts are disabled */
 };
 
 /**
  * @brief Make pointers.
  * 
  * A pointer used for I2C communication. On each read/write address will
- * increase.
+ * increase. If requested register is outside regmap, the pointer will 
+ * retrun dummy byte.
  */
 uint8_t *pointer = (uint8_t *)&regmap;
+uint8_t dummy = 0xFF;
 
 
 struct registers current;
@@ -47,20 +52,22 @@ enum RequestType req;
 void main(void)
 {
     /* Configure the oscillator for the device */
+#ifndef __SIM__
     ConfigureOscillator();
+#endif
 
     /* Initialize I/O and Peripherals for application */
     InitApp();
     
     /* Copy default values to current settings */
-    memcpy(&current, &regmap, sizeof(struct registers));  
+    memcpy(&current, &regmap, sizeof(struct registers));
 
     while(1)
     {
         /* Check for change in registers */
         if(memcmp(&regmap, &current, sizeof(struct registers))) {
-            /* Interrupts must be disabled during pins setting */
-          
+            
+            /* Interrupts must be disabled during pins setting */          
             INTCONbits.GIE = 0;
             
             /* Check for direction changes */
@@ -69,20 +76,34 @@ void main(void)
                 current.dir = regmap.dir;
             }
             
-            /* Check for data changes */
             if(regmap.data != current.data) {
                 SetGPIOData();
                 current.data = regmap.data;
             }
             
+            if(regmap.pullup != current.pullup) {
+                SetGPIOPullUp();
+                current.data = regmap.data;
+            }
+            
+            if(regmap.mode != current.mode) {
+                SetGPIOMode();
+                current.mode = regmap.mode;
+            }
+            
+            if(regmap.buffer != current.buffer) {
+                SetGPIOBuffer();
+                current.buffer = regmap.buffer;
+            }
+            
+            if(regmap.slew != current.slew) {
+                SetGPIOSlew();
+                current.slew = regmap.slew;
+            }            
              
              INTCONbits.GIE = 1;
         }
         
-        
-        
-        /* Check for data changes */
-        // TODO: Update only register that are changed
         CLRWDT();
     }
 

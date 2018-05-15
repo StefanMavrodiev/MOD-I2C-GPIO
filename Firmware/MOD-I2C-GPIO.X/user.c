@@ -23,18 +23,60 @@ static void __InitGPIO(void);
 static void __InitMSSP(void);
 static void __InitInterrupts(void);
 
-#if 0
-static void __SetRegister(volatile uint8_t *reg, uint8_t *data)
+
+
+/**
+ * @brief Translate regmap to register
+ * 
+ * @param reg   Pointer to SFR
+ * @param data  Pointer to regmap
+ * @param mask  Mask, 0 if unused
+ * 
+ * The algorithm is:
+ *  1.  The input data is e.g: 0xAB.
+ *      The upper four bit are for PORTC and the lower 4 for PORTA.
+ * 
+ *  2.  Bytes for PORTA are padded to match pin register:
+ *      | x | x | x | x | 3 | 2 | 1 | 0 |
+ *      ---------------------------------
+ *      | x | x | x | 3 | x | 2 | 1 | 0 |
+ * 
+ *  3.  Current direction is XORed with the new value. Then only bits with
+ *      change are cleared.
+ *      | x | x | x | 1 | x | 1 | 0 | 0 |   -> original value
+ *      | x | x | x | 1 | x | 0 | 1 | 0 |   -> desired value
+ *      ---------------------------------   
+ *      | x | x | x | 0 | x | 1 | 1 | 0 |   -> XOR
+ *      ---------------------------------
+ *      | x | x | x | 1 | x | 0 | 0 | 1 |   -> NOT
+ * 
+ *      | x | x | x | 1 | x | 1 | 0 | 0 |   -> original value
+ *      | x | x | x | 1 | x | 0 | 0 | 1 |   -> NOT value
+ *      ---------------------------------   
+ *      | x | x | x | 1 | x | 0 | 0 | 0 |   -> AND
+ * 
+ *  4.  Finally cleared value is OR-ed with the desired one"
+ *      | x | x | x | 1 | x | 0 | 0 | 0 |   -> AND value
+ *      | x | x | x | 1 | x | 0 | 1 | 0 |   -> desired value
+ *      --------------------------------
+ *      | x | x | x | 1 | x | 0 | 1 | 0 |   -> final value
+ * 
+ * This is a bit complicated, but this way we can guarantee that direction
+ * will not toggle if there is no change in direction register.
+ */
+static void __SetRegister(volatile uint8_t *reg, uint8_t *data, uint8_t mask)
 {
-    uint8_t isr = INTCON;
     uint8_t temp;
     
     /* Disable interrupts */
     INTCONbits.GIE = 0;
     
+    /* Apply mask */
+    *data &= mask;
+    
     /* Configure SFR */
     temp = *data & 0x07 | ((*data & 0x08) << 1);
-    *reg &= ~((TRISA ^ temp) & 0x17);
+    *reg &= ~((*reg ^ temp) & 0x17);
     *reg |= temp;
     
     /* Configure SFR + 2 */
@@ -43,11 +85,28 @@ static void __SetRegister(volatile uint8_t *reg, uint8_t *data)
     
     *reg &= ~((*reg ^ temp) & 0x3C);
     *reg |= temp;
-    
-    /* Restore interrupts */
-    INTCON = isr;    
 }
-#endif
+
+/**
+ * @brief Translate SFR -> regmap
+ * 
+ * @param reg   Pointer to SFR register
+ * @param data  Pointer to remap
+ * @param mask  Mask, 0 if unused
+ */
+static void __GetRegister(volatile uint8_t *reg, uint8_t *data, uint8_t mask)
+{
+    uint8_t temp;
+    
+    /* Read PORTA */
+    temp = (*reg & 0x07) | ((*reg & 0x10) >> 1);
+    
+    /* Read PORTC */
+    temp |= (*reg & 0x3C) << 2;
+    
+    *data &= ~mask;
+    *data |= temp & mask;    
+}
 
 
 void InitApp(void)
@@ -78,17 +137,32 @@ static void __InitGPIO(void)
     
     /* Configure direction */
     TRISAbits.TRISA5 = 0;
-    SetGPIODirection();
     
-    /* Configure pull-ups */
-    SetGPIOPullUp();    
+    /* Make OD */
+    ODCONAbits.ODCA5 = 1;
     
     /* Configure value */
     LATAbits.LATA5 = 0;
-    SetGPIOData();
     
-    /* Read initial value */
+    SetGPIODirection();
+    SetGPIOData();
+    SetGPIOMode();
+    
+    
+    SetGPIOPullUp();
+    SetGPIOBuffer();    
+    SetGPIOSlew();
+    
     GetGPIOData();
+    
+    /* Enable IOC on both edges */
+    IOCAP = 0x17;
+    IOCAN = 0x17;
+    IOCAF = 0;
+    
+    IOCCP = 0x3C;
+    IOCCN = 0x3C;
+    IOCCF = 0;
     
 }
 
@@ -169,7 +243,11 @@ static void __InitInterrupts(void)
 {
     /* Enable MSSP interrupts */
     PIR1bits.SSP1IF = 0;
-    PIE1bits.SSP1IE = 1;    
+    PIE1bits.SSP1IE = 1;
+    
+    /* Enable IOC interrupts */
+    PIR0bits.IOCIF = 0;
+    PIE0bits.IOCIE = 1;
     
     /* Enable Peripheral interrupts */
     INTCONbits.PEIE = 1;
@@ -186,69 +264,10 @@ static void __InitInterrupts(void)
  * so this should be called only when there is change in it.
  * Pin direction is changed only if needed.
  * 
- * The algorithm is:
- *  1.  The input data is e.g: 0xAB.
- *      The upper four bit are for PORTC and the lower 4 for PORTA.
- * 
- *  2.  Bytes for PORTA are padded to match pin register:
- *      | x | x | x | x | 3 | 2 | 1 | 0 |
- *      ---------------------------------
- *      | x | x | x | 3 | x | 2 | 1 | 0 |
- * 
- *  3.  Current direction is XORed with the new value. Then only bits with
- *      change are cleared.
- *      | x | x | x | 1 | x | 1 | 0 | 0 |   -> original value
- *      | x | x | x | 1 | x | 0 | 1 | 0 |   -> desired value
- *      ---------------------------------   
- *      | x | x | x | 0 | x | 1 | 1 | 0 |   -> XOR
- *      ---------------------------------
- *      | x | x | x | 1 | x | 0 | 0 | 1 |   -> NOT
- * 
- *      | x | x | x | 1 | x | 1 | 0 | 0 |   -> original value
- *      | x | x | x | 1 | x | 0 | 0 | 1 |   -> NOT value
- *      ---------------------------------   
- *      | x | x | x | 1 | x | 0 | 0 | 0 |   -> AND
- * 
- *  4.  Finally cleared value is OR-ed with the desired one"
- *      | x | x | x | 1 | x | 0 | 0 | 0 |   -> AND value
- *      | x | x | x | 1 | x | 0 | 1 | 0 |   -> desired value
- *      --------------------------------
- *      | x | x | x | 1 | x | 0 | 1 | 0 |   -> final value
- * 
- * This is a bit complicated, but this way we can guarantee that direction
- * will not toggle if there is no change in direction register.
- * 
- * @note Setting this input pin with enabled pull-up will disable pull-up.
- * @note When changing from input to output, value will be set as 0.
- * @see SetGPIOPullUp()
- * @see SetGPIOData()
- *      
  */
 void SetGPIODirection(void)
-{
-    uint8_t dir;
-    
-    /* Configure PORTA */
-    dir = ~(regmap.dir & 0x07 | ((regmap.dir & 0x08) << 1));
-    
-    TRISA &= ~((TRISA ^ dir) & 0x17);
-    TRISA |= dir;
-    
-    /* Configure PORTC */
-    dir = ~((regmap.dir & 0xF0) >> 2);
-    
-    TRISC &= ~((TRISC ^ dir) & 0x3C);
-    TRISC |= dir;
-    
-    // TODO: On change from input to output clear data value.
-    // TODO: On change from input to output disable pull-up
-    
-//    /* Update data */
-//    SetGPIOData();
-//    
-//    /* Update pull-ups */
-//    SetGPIOPullUp();
-
+{    
+    __SetRegister(&TRISA, &regmap.dir, -1);
 }
 
 /**
@@ -261,22 +280,7 @@ void SetGPIODirection(void)
  */
 void SetGPIOData(void)
 {
-    uint8_t data;
-    
-    /* Change only output */
-    regmap.data &= regmap.dir;
-    
-    /* Configure PORTA */
-    data = regmap.data & 0x07 | ((regmap.data & 0x08) << 1);
-    
-    LATA &= ~((LATA ^ data) & 0x17);
-    LATA |= data;
-    
-    /* Configure PORTC */
-    data = (regmap.data & 0xF0) >> 2;
-    
-    LATC &= ~((LATC ^ data) & 0x3C);
-    LATC |= data;
+    __SetRegister(&LATA, &regmap.data, ~regmap.dir);
 }
 
 /**
@@ -287,42 +291,45 @@ void SetGPIOData(void)
  */
 void GetGPIOData(void)
 {
-    uint8_t data;
-    
-    /* Read PORTA */
-    data = (PORTA & 0x07) | ((PORTA & 0x10) >> 1);
-    
-    /* Read PORTC */
-    data |= (PORTC & 0x3C) << 2;
-    
-    /* Store new values */
-    regmap.data &= ~regmap.dir;
-    regmap.data |= data & regmap.dir;   
+    __GetRegister(&PORTA, &regmap.data, regmap.dir);
 }
 
 /**
  * @brief Sets pull-ups
  * 
  * Enable/disable internal weak pull-ups. If pins is configured as output
- * setting this value has no effect.
+ * setting this value has no effect, except for OD configuration.
  */
 void SetGPIOPullUp(void)
 {
-    uint8_t pullup;
-    
-    /* Change only inputs */
-    regmap.pullup &= regmap.dir;
-    
-    /* Configure PORTA */
-    pullup = regmap.pullup & 0x07 | ((regmap.pullup & 0x08) << 1);
-    
-    WPUA &= ~((WPUA ^ pullup) & 0x17);
-    WPUA |= pullup;
-    
-    /* Configure PORTC */
-    pullup = (regmap.data & 0xF0) >> 2;
-    
-    
-    WPUC &= ~((WPUC ^ pullup) & 0x3C);
-    WPUC |= pullup;      
+    __SetRegister(&WPUA, &regmap.pullup, -1);
+}
+
+/**
+ * @brief Enabled open-drain configuration
+ * 
+ * Enable/disable open-drain output configuration.
+ */
+void SetGPIOMode(void)
+{
+    __SetRegister(&ODCONA, &regmap.mode, -1);
+}
+
+/**
+ * @brief Select CMOS/TTL input level
+ * 
+ */
+void SetGPIOBuffer(void)
+{
+    __SetRegister(&INLVLA, &regmap.buffer, -1);
+}
+
+/**
+ * @brief Select input slew rate
+ * 
+ * Limit or allow maximum slew rate.
+ */
+void SetGPIOSlew(void)
+{
+    __SetRegister(&SLRCONA, &regmap.buffer, -1);
 }
