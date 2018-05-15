@@ -13,13 +13,26 @@
 
 #include "system.h"
 
-/* Refer to the device datasheet for information about available
-oscillator configurations. */
 void ConfigureOscillator(void)
 {
-    /* TODO Add clock switching code if appropriate.  */
-
-    /* Typical actions in this function are to tweak the oscillator tuning
-    register, select new clock sources, and to wait until new clock sources
-    are stable before resuming execution of the main project. */
+    // NOSC HFINTOSC with 2x PLL; NDIV 1; 
+    OSCCON1 = 0x00;
+    
+    // CSWHOLD may proceed; SOSCPWR Low power; SOSCBE crystal oscillator; 
+    OSCCON3 = 0x00;
+    
+    // LFOEN disabled; ADOEN disabled; SOSCEN disabled; EXTOEN disabled; HFOEN disabled; 
+    OSCEN = 0x00;
+    
+    // HFFRQ 16_MHz; 
+    OSCFRQ = 0x06;
+    
+    // HFTUN 32; 
+    OSCTUNE = 0x20;
+    
+    // Wait for PLL to stabilize
+    while(PLLR == 0)
+    {
+    }
+    
 }

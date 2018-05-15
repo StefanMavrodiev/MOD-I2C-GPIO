@@ -17,16 +17,10 @@
 /* User Functions                                                             */
 /******************************************************************************/
 
-/* <Initialize variables in user.h and insert code for user algorithms.> */
-
 void InitApp(void)
 {
-    /* TODO Initialize User Ports/Peripherals/Project here */
+    ANSELA = 0;
+    ANSELC = 0;
 
-    /* Setup analog functionality and port direction */
-
-    /* Initialize peripherals */
-
-    /* Enable interrupts */
 }
 

@@ -30,11 +30,20 @@ void main(void)
 
     /* Initialize I/O and Peripherals for application */
     InitApp();
-
+    
+    
+    /* If RA5 is high load application */
+    // TODO: Checksum must be also read
+    
+    if(PORTAbits.RA5) {
+        
+        STKPTR = 0x1F;
+        asm ("pagesel 0x200");
+        asm ("goto 0x200");
+    }
 
     while(1)
     {
-        /* TODO <INSERT USER APPLICATION CODE HERE> */
     }
 
 }

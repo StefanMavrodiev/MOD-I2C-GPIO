@@ -27,9 +27,9 @@
 #pragma config DEBUG = OFF    // Debugger enable bit->Background debugger disabled
 
 // CONFIG3
-#pragma config WRT = OFF    // User NVM self-write protection bits->Write protection off
+#pragma config WRT = BOOT    // User NVM self-write protection bits->Write protection off
 #pragma config LVP = OFF    // Low Voltage Programming Enable bit->High Voltage on MCLR/VPP must be used for programming.
 
 // CONFIG4
-#pragma config CP = OFF    // User NVM Program Memory Code Protection bit->User NVM code protection disabled
-#pragma config CPD = OFF    // Data NVM Memory Code Protection bit->Data NVM code protection disabled
+#pragma config CP = ON    // User NVM Program Memory Code Protection bit->User NVM code protection enabled
+#pragma config CPD = ON    // Data NVM Memory Code Protection bit->Data NVM code protection enabled
