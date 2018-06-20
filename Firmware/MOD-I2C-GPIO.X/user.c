@@ -30,7 +30,6 @@ static void __InitInterrupts(void);
  * 
  * @param reg   Pointer to SFR
  * @param data  Pointer to regmap
- * @param mask  Mask, 0 if unused
  * 
  * The algorithm is:
  *  1.  The input data is e.g: 0xAB.
@@ -64,15 +63,12 @@ static void __InitInterrupts(void);
  * This is a bit complicated, but this way we can guarantee that direction
  * will not toggle if there is no change in direction register.
  */
-static void __SetRegister(volatile uint8_t *reg, uint8_t *data, uint8_t mask)
+static void __SetRegister(volatile uint8_t *reg, uint8_t *data)
 {
     uint8_t temp;
     
     /* Disable interrupts */
     INTCONbits.GIE = 0;
-    
-    /* Apply mask */
-    *data &= mask;
     
     /* Configure SFR */
     temp = *data & 0x07 | ((*data & 0x08) << 1);
@@ -92,9 +88,8 @@ static void __SetRegister(volatile uint8_t *reg, uint8_t *data, uint8_t mask)
  * 
  * @param reg   Pointer to SFR register
  * @param data  Pointer to remap
- * @param mask  Mask, 0 if unused
  */
-static void __GetRegister(volatile uint8_t *reg, uint8_t *data, uint8_t mask)
+static void __GetRegister(volatile uint8_t *reg, uint8_t *data)
 {
     uint8_t temp;
     
@@ -104,8 +99,7 @@ static void __GetRegister(volatile uint8_t *reg, uint8_t *data, uint8_t mask)
     /* Read PORTC */
     temp |= (*reg & 0x3C) << 2;
     
-    *data &= ~mask;
-    *data |= temp & mask;    
+    *data = temp;
 }
 
 
@@ -135,6 +129,7 @@ static void __InitGPIO(void)
     RC0PPS = 0x18;
     RC1PPS = 0x19;
     
+    
     /* Configure direction */
     TRISAbits.TRISA5 = 0;
     
@@ -145,7 +140,7 @@ static void __InitGPIO(void)
     INT_DEASSERT();
     
     SetGPIODirection();
-    SetGPIOData();
+    SetGPIOOutput();
     SetGPIOMode();
     
     
@@ -153,7 +148,7 @@ static void __InitGPIO(void)
     SetGPIOBuffer();    
     SetGPIOSlew();
     
-    GetGPIOData();
+    GetGPIOInput();
     
     /* Enable IOC on both edges */
     IOCAP = 0x17;
@@ -267,7 +262,7 @@ static void __InitInterrupts(void)
  */
 void SetGPIODirection(void)
 {    
-    __SetRegister(&TRISA, &regmap.dir, -1);
+    __SetRegister(&TRISA, &regmap.dir);
 }
 
 /**
@@ -278,9 +273,9 @@ void SetGPIODirection(void)
  * If pin is configured as input, this function do nothing.
  * @see SetGPIODirection
  */
-void SetGPIOData(void)
+void SetGPIOOutput(void)
 {
-    __SetRegister(&LATA, &regmap.data, ~regmap.dir);
+    __SetRegister(&LATA, &regmap.output);
 }
 
 /**
@@ -289,9 +284,9 @@ void SetGPIOData(void)
  * Read current value of the pins configured as inputs and stores them into
  * the global register.
  */
-void GetGPIOData(void)
+void GetGPIOInput(void)
 {
-    __GetRegister(&PORTA, &regmap.data, regmap.dir);
+    __GetRegister(&PORTA, &regmap.input);
 }
 
 /**
@@ -302,7 +297,7 @@ void GetGPIOData(void)
  */
 void SetGPIOPullUp(void)
 {
-    __SetRegister(&WPUA, &regmap.pullup, -1);
+    __SetRegister(&WPUA, &regmap.pullup);
 }
 
 /**
@@ -312,7 +307,7 @@ void SetGPIOPullUp(void)
  */
 void SetGPIOMode(void)
 {
-    __SetRegister(&ODCONA, &regmap.mode, -1);
+    __SetRegister(&ODCONA, &regmap.mode);
 }
 
 /**
@@ -321,7 +316,7 @@ void SetGPIOMode(void)
  */
 void SetGPIOBuffer(void)
 {
-    __SetRegister(&INLVLA, &regmap.buffer, -1);
+    __SetRegister(&INLVLA, &regmap.buffer);
 }
 
 /**
@@ -331,5 +326,5 @@ void SetGPIOBuffer(void)
  */
 void SetGPIOSlew(void)
 {
-    __SetRegister(&SLRCONA, &regmap.buffer, -1);
+    __SetRegister(&SLRCONA, &regmap.buffer);
 }

@@ -51,8 +51,7 @@ static inline void __IOCInterrupt(void)
     data |= (PORTC & 0x3C) << 2;
     
     /* Mask data */
-    regmap.data &= ~(regmap.dir);
-    regmap.data |= data & regmap.dir;
+    regmap.input = data;
     
     /* Map IOCxF to regmap */
     ioc = (ioca & 0x07) | ((ioca & 0x10) >> 1);
@@ -61,7 +60,7 @@ static inline void __IOCInterrupt(void)
     /* Check for INT request */
     mask = ioc & regmap.interrupt_enable;
     if (mask) {
-        if (regmap.data & mask) {
+        if (regmap.input & mask) {
             
             /**
              * Rising edge
@@ -114,7 +113,7 @@ static inline void __MSSPInterrupt(void)
          */
         if((SSP1STATbits.D_nA) && (SSP1CON2bits.ACKSTAT))
         {
-            if (pointer >= (uint8_t *)&regmap + sizeof(regmap))
+            if (pointer >= (uint8_t *)&regmap.interrupt_status)
                 pointer = &dummy;
             else
                 ++pointer;
@@ -126,7 +125,7 @@ static inline void __MSSPInterrupt(void)
 //            SSPBUF = 0xAA;
             
             /* Clear pending INT on INTERRUPT_STATUS read */
-            if(pointer == &regmap.interrupt_status) {
+            if(pointer == (uint8_t *)&regmap.interrupt_status) {
                 regmap.interrupt_status = 0x00;
                 INT_DEASSERT();
             }
@@ -151,6 +150,7 @@ static inline void __MSSPInterrupt(void)
         } else {
             if(pointer != &regmap.device && 
                     pointer != &regmap.firmware &&
+                    pointer != &regmap.input &&
                     pointer != &regmap.interrupt_status)
                 *pointer = data;
         }

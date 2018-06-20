@@ -9,7 +9,8 @@
 #endif
 
 #include <stdint.h>        /* For uint8_t definition */
-#include <stdbool.h>       /* For true/false definition */
+#include <stdbool.h>
+#include <pic16lf18324.h>       /* For true/false definition */
 
 #include "system.h"        /* System funct/params, like osc/peripheral config */
 #include "user.h"          /* User funct/params, such as InitApp */
@@ -18,7 +19,20 @@
 /* User Global Variable Declaration                                           */
 /******************************************************************************/
 
-/* i.e. uint8_t <variable_name>; */
+enum commands {
+    CMD_READ_VERSION = 0,
+    CMD_READ_FLASH,
+    CMD_WRITE_FLASH,
+    CMD_ERASE_FLASH,
+    CMD_READ_EE_DATA,
+    CMD_WRITE_EE_DATA,
+    CMD_READ_CONFIG,
+    CMD_WRITE_CONFIG,
+    CMD_CALC_CHECKSUM,
+    CMD_RESET_DEVICE
+};
+
+uint8_t buffer[64];
 
 /******************************************************************************/
 /* Main Program                                                               */

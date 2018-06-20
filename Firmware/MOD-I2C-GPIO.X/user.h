@@ -23,8 +23,8 @@ void InitApp(void);         /* I/O and Peripheral Initialization */
 
 void SetGPIODirection(void);
 
-void SetGPIOData(void);
-void GetGPIOData(void);
+void SetGPIOOutput(void);
+void GetGPIOInput(void);
 
 void SetGPIOPullUp(void);
 void SetGPIOMode(void);

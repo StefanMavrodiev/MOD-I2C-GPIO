@@ -7,11 +7,44 @@
 	fragment@0 {
 		target = <&i2c2>;
 		__overlay__ {
-			i2c-gpio@3b {
+			mod_i2c_gpio: i2c-gpio@3b {
 				compatible = "olimex,i2c-gpio";
+				#gpio-cells = <2>;
 				reg = <0x3b>;
 
 				gpio-controller;
+				gpio-ranges = <&mod_i2c_gpio 0 0 8>;
+
+				pinctrl-names = "default";
+				pinctrl-0 = <&gpio1>,<&gpio2>,<&gpio3>,<&gpio4>;
+
+				gpio1: gpio1 {
+					pins = "gpio1";
+					output-high;
+					drive-open-drain;
+					bias-disable;
+				};
+
+				gpio2: gpio2 {
+					pins = "gpio2";
+					output-high;
+					drive-open-drain;
+					bias-pull-up;
+				};
+
+				gpio3: gpio3 {
+					pins = "gpio3";
+					output-low;
+					drive-open-drain;
+					bias-disable;
+				};
+
+				gpio4: gpio4 {
+					pins = "gpio4";
+					output-low;
+					drive-open-drain;
+					bias-pull-up;
+				};
 			};
 		};
 	};

@@ -48,18 +48,23 @@ void main(void)
     regmap.device = DEVICE_ID;
     regmap.firmware = FIRMWARE_VERSION;
     regmap.dir = 0xFF;                      /* All inputs */
-    regmap.data = 0x00;                     /* Data */
+    regmap.input = 0x00;                    /* Input */
+    regmap.output = 0x00;                   /* Output */
     regmap.pullup = 0xFF;                   /* All pull-ups enabled */
     regmap.mode = 0x00;                     /* All push-pull mode */
     regmap.buffer = 0xFF;                   /* All ST enabled inputs */
     regmap.slew = 0xFF;                     /* Slew rate is limited */
+#ifdef __SIM__
+    regmap.interrupt_enable = 0x01;         /* All interrupts are disabled */
+    regmap.interrupt_sense = 0x0003;
+#else
     regmap.interrupt_enable = 0x00;         /* All interrupts are disabled */
     regmap.interrupt_sense = 0x0000;
-    regmap.interrupt_sense = 0x00;
+#endif
+    regmap.interrupt_status = 0x00;
 
     /* Initialize I/O and Peripherals for application */
-    InitApp();
-    
+    InitApp();    
     
     /* Copy default values to current settings */
     memcpy(&current, &regmap, sizeof(struct registers));
@@ -78,14 +83,14 @@ void main(void)
                 current.dir = regmap.dir;
             }
             
-            if(regmap.data != current.data) {
-                SetGPIOData();
-                current.data = regmap.data;
+            if(regmap.output != current.output) {
+                SetGPIOOutput();
+                current.output = regmap.output;
             }
             
             if(regmap.pullup != current.pullup) {
                 SetGPIOPullUp();
-                current.data = regmap.data;
+                current.pullup = regmap.pullup;
             }
             
             if(regmap.mode != current.mode) {

@@ -10,6 +10,7 @@
 \usepackage{geometry}
 \usepackage{lipsum}
 \usepackage{float}
+\usepackage{parskip}
 
 %
 % Change default font
@@ -34,7 +35,9 @@
 	
 	\section{Description}
 	\begin{multicols}{2}
-		\lipsum
+		MOD-I2C-GPIO implements simple GPIO expander. The project is based on PIC16F18324.
+		The device has the following capabilities:
+
 	\end{multicols}
 	
 
@@ -51,16 +54,19 @@
 				\bitbox[]{4}{\texttt{0x01}} & \bitbox{32}{Firmware version}
 			\end{rightwordgroup} \\
 				\bitbox[]{4}{\texttt{0x02}} & \bitbox{32}{Data direction} \\
-				\bitbox[]{4}{\texttt{0x03}} & \bitbox{32}{Input/Output data} \\
-				\bitbox[]{4}{\texttt{0x04}} & \bitbox{32}{Pull-up enable} \\
-				\bitbox[]{4}{\texttt{0x05}} & \bitbox{32}{Output mode} \\
-				\bitbox[]{4}{\texttt{0x06}} & \bitbox{32}{Input buffer mode} \\
-				\bitbox[]{4}{\texttt{0x07}} & \bitbox{32}{Input slew-rate control} \\
-				\bitbox[]{4}{\texttt{0x08}} & \bitbox{32}{Interrupt enable} \\
-				\bitbox[]{4}{\texttt{0x09}} & \bitbox{32}{Interrupt sense high byte} \\
-				\bitbox[]{4}{\texttt{0x0A}} & \bitbox{32}{Interrupt sense low byte} \\
 			\begin{rightwordgroup}{Read-only}
-				\bitbox[]{4}{\texttt{0x0B}} & \bitbox{32}{Interrupt status}
+				\bitbox[]{4}{\texttt{0x03}} & \bitbox{32}{Input data}
+			\end{rightwordgroup} \\
+				\bitbox[]{4}{\texttt{0x04}} & \bitbox{32}{Output data} \\
+				\bitbox[]{4}{\texttt{0x05}} & \bitbox{32}{Pull-up enable} \\
+				\bitbox[]{4}{\texttt{0x06}} & \bitbox{32}{Output mode} \\
+				\bitbox[]{4}{\texttt{0x07}} & \bitbox{32}{Input buffer mode} \\
+				\bitbox[]{4}{\texttt{0x08}} & \bitbox{32}{Input slew-rate control} \\
+				\bitbox[]{4}{\texttt{0x09}} & \bitbox{32}{Interrupt enable} \\
+				\bitbox[]{4}{\texttt{0x0A}} & \bitbox{32}{Interrupt sense high byte} \\
+				\bitbox[]{4}{\texttt{0x0B}} & \bitbox{32}{Interrupt sense low byte} \\
+			\begin{rightwordgroup}{Read-only}
+				\bitbox[]{4}{\texttt{0x0C}} & \bitbox{32}{Interrupt status}
 			\end{rightwordgroup} 
 				
 		\end{bytefield}
@@ -70,8 +76,312 @@
 	
 	\section{Device registers}
 	sdasd
+	
 	\subsection{Device ID}
-	sdsd
+	
+		This register holds the unique device identification. It can be used for detection. The register is read-only, so it cannot change.
+		
+		\begin{tabular}{ l c }
+			Address: & 0x00 \\
+			Default: & 0x43 \\
+		\end{tabular}
+	
+		\begin{figure}[H]
+			\centering
+			\begin{bytefield}[
+				bitwidth=0.1\linewidth]{8}
+				\bitheader[endianness=big, bitformatting={\small\bfseries}]{0-7} \\
+				\bitbox{8}{ID}
+			\end{bytefield}
+			\caption{Device ID register}
+			\label{reg:device_id}
+		\end{figure}
+	
+	\subsection{Firmware version}
+	
+		Each new firmware release has its own revision. It's stored to this read-only register.
+		The first release is 0x01, the second - 0x02, etc.
+		
+		\begin{tabular}{ l c }
+			Address: & 0x01 \\
+			Default: & - \\
+		\end{tabular}
+		
+		\begin{figure}[H]
+			\centering
+			\begin{bytefield}[
+				bitwidth=0.1\linewidth]{8}
+				\bitheader[endianness=big, bitformatting={\small\bfseries}]{0-7} \\
+				\bitbox{8}{FW}
+			\end{bytefield}
+			\caption{Firmware revision register}
+			\label{reg:fw_rev}
+		\end{figure}
+	
+	\subsection{Data direction}
+	
+		Each GPIO can be input or output. Setting a bit will make the corresponding pin input.
+		Clearing it - output. 
+	
+		\begin{tabular}{ l c }
+			Address: & 0x02 \\
+			Default: & 0x00 \\
+		\end{tabular}
+		
+		\begin{figure}[H]
+			\centering
+			\begin{bytefield}[
+				bitwidth=0.1\linewidth]{8}
+				\bitheader[endianness=big, bitformatting={\small\bfseries}]{0-7} \\
+				\bitboxes{1}{{DIR7} {DIR6} {DIR5} {DIR4} {DIR3} {DIR2} {DIR1} {DIR0}}
+			\end{bytefield}
+			\caption{Data direction register}
+			\label{reg:data_dir}
+		\end{figure}
+		
+		\begin{itemize}
+			\item \textbf{DIR7}: GPIO7 data direction control bit
+			\begin{itemize}
+				\item 1: Setup GPIO7 as input
+				\item 0: Setup GPIO7 as output
+			\end{itemize}
+			\item \textbf{DIR6}: GPIO6 data direction control bit
+			\begin{itemize}
+				\item 1: Setup GPIO6 as input
+				\item 0: Setup GPIO6 as output
+			\end{itemize}
+			\item \textbf{DIR5}: GPIO5 data direction control bit
+			\begin{itemize}
+				\item 1: Setup GPIO5 as input
+				\item 0: Setup GPIO5 as output
+			\end{itemize}
+			\item \textbf{DIR4}: GPIO4 data direction control bit
+			\begin{itemize}
+				\item 1: Setup GPIO4 as input
+				\item 0: Setup GPIO4 as output
+			\end{itemize}
+			\item \textbf{DIR3}: GPIO3 data direction control bit
+			\begin{itemize}
+				\item 1: Setup GPIO3 as input
+				\item 0: Setup GPIO3 as output
+			\end{itemize}
+			\item \textbf{DIR2}: GPIO2 data direction control bit
+			\begin{itemize}
+				\item 1: Setup GPIO2 as input
+				\item 0: Setup GPIO2 as output
+			\end{itemize}
+			\item \textbf{DIR1}: GPIO1 data direction control bit
+			\begin{itemize}
+				\item 1: Setup GPIO1 as input
+				\item 0: Setup GPIO1 as output
+			\end{itemize}
+			\item \textbf{DIR0}: GPIO0 data direction control bit
+			\begin{itemize}
+				\item 1: Setup GPIO0 as input
+				\item 0: Setup GPIO0 as output
+			\end{itemize}
+			
+		\end{itemize}
+		
+	\subsection{Input data}
+		
+		This register holds input levels.
+			
+		\begin{tabular}{ l c }
+			Address: & 0x03 \\
+			Default: & - - - - \\
+		\end{tabular}
+			
+		\begin{figure}[H]
+			\centering
+			\begin{bytefield}[
+				bitwidth=0.1\linewidth]{8}
+				\bitheader[endianness=big, bitformatting={\small\bfseries}]{0-7} \\
+				\bitboxes{1}{{IN7} {IN6} {IN5} {IN4} {IN3} {IN2} {IN1} {IN0}}
+			\end{bytefield}
+			\caption{Input data register}
+			\label{reg:input_value}
+		\end{figure}
+		
+		\begin{itemize}
+			\item \textbf{IN7}: GPIO7 input value
+			\begin{itemize}
+				\item 0: Input level on GPIO7 is low
+				\item 1: Input level on GPIO7 is high
+			\end{itemize}
+			\item \textbf{IN6}: GPIO6 input value
+			\begin{itemize}
+				\item 0: Input level on GPIO6 is low
+				\item 1: Input level on GPIO6 is high
+			\end{itemize}
+			\item \textbf{IN5}: GPIO5 input value
+			\begin{itemize}
+				\item 0: Input level on GPIO5 is low
+				\item 1: Input level on GPIO5 is high
+			\end{itemize}
+			\item \textbf{IN4}: GPIO4 input value
+			\begin{itemize}
+				\item 0: Input level on GPIO4 is low
+				\item 1: Input level on GPIO4 is high
+			\end{itemize}
+			\item \textbf{IN3}: GPIO3 input value
+			\begin{itemize}
+				\item 0: Input level on GPIO3 is low
+				\item 1: Input level on GPIO3 is high
+			\end{itemize}
+			\item \textbf{IN2}: GPIO2 input value
+			\begin{itemize}
+				\item 0: Input level on GPIO2 is low
+				\item 1: Input level on GPIO2 is high
+			\end{itemize}
+			\item \textbf{IN1}: GPIO1 input value
+			\begin{itemize}
+				\item 0: Input level on GPIO1 is low
+				\item 1: Input level on GPIO1 is high
+			\end{itemize}
+			\item \textbf{IN0}: GPIO0 input value
+			\begin{itemize}
+				\item 0: Input level on GPIO0 is low
+				\item 1: Input level on GPIO0 is high
+			\end{itemize}
+		\end{itemize}
+		
+		
+	\subsection{Output data}
+		
+		This register sets output GPIO level.
+		
+		\begin{tabular}{ l c }
+			Address: & 0x04 \\
+			Default: & 0x00 \\
+		\end{tabular}
+		
+		\begin{figure}[H]
+			\centering
+			\begin{bytefield}[
+				bitwidth=0.1\linewidth]{8}
+				\bitheader[endianness=big, bitformatting={\small\bfseries}]{0-7} \\
+				\bitboxes{1}{{OUT7} {OUT6} {OUT5} {OUT4} {OUT3} {OUT2} {OUT1} {OUT0}}
+			\end{bytefield}
+			\caption{Output data register}
+			\label{reg:output_value}
+		\end{figure}
+		
+		\begin{itemize}
+			\item \textbf{OUT7}: GPIO7 output value
+			\begin{itemize}
+				\item 0: Drive GPIO low
+				\item 1: Drive GPIO high
+			\end{itemize}
+			\item \textbf{OUT6}: GPIO6 output value
+			\begin{itemize}
+				\item 0: Drive GPIO low
+				\item 1: Drive GPIO high
+			\end{itemize}
+			\item \textbf{OUT5}: GPIO5 output value
+			\begin{itemize}
+				\item 0: Drive GPIO low
+				\item 1: Drive GPIO high
+			\end{itemize}
+			\item \textbf{OUT4}: GPIO4 output value
+			\begin{itemize}
+				\item 0: Drive GPIO low
+				\item 1: Drive GPIO high
+			\end{itemize}
+			\item \textbf{OUT3}: GPIO3 output value
+			\begin{itemize}
+				\item 0: Drive GPIO low
+				\item 1: Drive GPIO high
+			\end{itemize}
+			\item \textbf{OUT2}: GPIO2 output value
+			\begin{itemize}
+				\item 0: Drive GPIO low
+				\item 1: Drive GPIO high
+			\end{itemize}
+			\item \textbf{OUT1}: GPIO1 output value
+			\begin{itemize}
+				\item 0: Drive GPIO low
+				\item 1: Drive GPIO high
+			\end{itemize}
+			\item \textbf{OUT0}: GPIO0 output value
+			\begin{itemize}
+				\item 0: Drive GPIO low
+				\item 1: Drive GPIO high
+			\end{itemize}
+		\end{itemize}
+			
+
+	\subsection{Pull-up enable}
+	
+	All GPIOs has internal weak pull-up resistors. They are enabled by default, to minimize
+	noise and power consumption. The can be disabled by either writing 0 to the corresponding
+	bit or making the direction output.
+	\par
+	Special case is when GPIO is configure as open-drain. If the bit for given GPIO is set, then
+	the pull-up is enabled is DAT bit is set. On DAT clear, the pull-up becomes inactive. 
+	
+	\begin{tabular}{ l c }
+		Address: & 0x04 \\
+		Default: & 0xFF \\
+	\end{tabular}
+	
+	\begin{figure}[H]
+		\centering
+		\begin{bytefield}[
+			bitwidth=0.1\linewidth]{8}
+			\bitheader[endianness=big, bitformatting={\small\bfseries}]{0-7} \\
+			\bitboxes{1}{{PU7} {PU6} {PU5} {PU4} {PU3} {PU2} {PU1} {PU0}}
+		\end{bytefield}
+		\caption{Pull-up control register}
+		\label{reg:pullup}
+	\end{figure}
+	
+	\begin{itemize}
+		\item \textbf{PU7}: GPIO7 data direction control bit
+		\begin{itemize}
+			\item 0: Disables GPIO7 internal pull-up resistor
+			\item 1: Enables GPIO7 internal pull-up resistor
+		\end{itemize}
+		\item \textbf{PU6}: GPIO6 data direction control bit
+		\begin{itemize}
+			\item 0: Disables GPIO6 internal pull-up resistor
+			\item 1: Enables GPIO6 internal pull-up resistor
+		\end{itemize}
+		\item \textbf{PU5}: GPIO5 data direction control bit
+		\begin{itemize}
+			\item 0: Disables GPIO5 internal pull-up resistor
+			\item 1: Enables GPIO5 internal pull-up resistor
+		\end{itemize}
+		\item \textbf{PU4}: GPIO4 data direction control bit
+		\begin{itemize}
+			\item 0: Disables GPIO4 internal pull-up resistor
+			\item 1: Enables GPIO4 internal pull-up resistor
+		\end{itemize}
+		\item \textbf{PU3}: GPIO3 data direction control bit
+		\begin{itemize}
+			\item 0: Disables GPIO3 internal pull-up resistor
+			\item 1: Enables GPIO3 internal pull-up resistor
+		\end{itemize}
+		\item \textbf{PU2}: GPIO2 data direction control bit
+		\begin{itemize}
+			\item 0: Disables GPIO2 internal pull-up resistor
+			\item 1: Enables GPIO2 internal pull-up resistor
+		\end{itemize}
+		\item \textbf{PU1}: GPIO1 data direction control bit
+		\begin{itemize}
+			\item 0: Disables GPIO1 internal pull-up resistor
+			\item 1: Enables GPIO1 internal pull-up resistor
+		\end{itemize}
+		\item \textbf{PU0}: GPIO0 data direction control bit
+		\begin{itemize}
+			\item 0: Disables GPIO0 internal pull-up resistor
+			\item 1: Enables GPIO0 internal pull-up resistor
+		\end{itemize}
+		
+	\end{itemize}
+
+	
+	
 
 	
 	

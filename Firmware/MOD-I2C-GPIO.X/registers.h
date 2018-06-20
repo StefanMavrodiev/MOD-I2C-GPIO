@@ -31,9 +31,14 @@ struct registers {
     
     
     /**
-     * Set/Get current port data
+     * Get input level
      */
-    uint8_t data;
+    uint8_t input;
+    
+    /**
+     * Set output level
+     */
+    uint8_t output;
     
     /**
      * Enable disable internal pullups.
