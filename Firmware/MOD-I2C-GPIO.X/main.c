@@ -30,8 +30,8 @@
 struct registers regmap;
 
 uint8_t *pointer = (uint8_t *)&regmap;
-uint8_t dummy = 0xFF;
 
+eeprom uint32_t serial = 0x12345678;
 struct registers current;
 enum RequestType req;
 
@@ -47,6 +47,7 @@ void main(void)
 
     regmap.device = DEVICE_ID;
     regmap.firmware = FIRMWARE_VERSION;
+    regmap.serial = serial;
     regmap.dir = 0xFF;                      /* All inputs */
     regmap.input = 0x00;                    /* Input */
     regmap.output = 0x00;                   /* Output */

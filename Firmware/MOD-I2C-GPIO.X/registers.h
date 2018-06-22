@@ -21,6 +21,13 @@ struct registers {
     uint8_t firmware;
     
     /**
+     * Set read-only register for serial number
+     * 
+     * @see SERIAL
+     */
+    uint32_t serial;
+    
+    /**
      * Set direction. Can be:
      * 1 - input
      * 0 - output
@@ -107,8 +114,8 @@ struct registers {
              * 
              * Values can be:
              *  0b00 - No edge detect
-             *  0b01 - Falling edge
-             *  0b10 - Rising edge
+             *  0b01 - Rising edge
+             *  0b10 - Falling edge             
              *  0b11 - Both
              * 
              * Default value: 0x00
@@ -120,8 +127,8 @@ struct registers {
              * 
              * Values can be:
              *  0b00 - No edge detect
-             *  0b01 - Falling edge
-             *  0b10 - Rising edge
+             *  0b01 - Rising edge
+             *  0b10 - Falling edge             
              *  0b11 - Both
              * 
              * Default value: 0x00
@@ -140,7 +147,6 @@ struct registers {
 
 extern struct registers regmap;
 extern uint8_t *pointer;
-extern uint8_t dummy;
 
 #endif	/* REGISTERS_H */
 

@@ -7,8 +7,11 @@
  */
 #define DEBUG
 
+#include <linux/bitops.h>
 #include <linux/device.h>
 #include <linux/i2c.h>
+#include <linux/interrupt.h>
+#include <linux/irq.h>
 #include <linux/gpio/driver.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
@@ -30,26 +33,40 @@
 #define I2C_GPIO_DEVICE_ID		0x43
 
 #define I2C_GPIO_FIRMWARE_VER_REG	0x01
-#define I2C_GPIO_DIRECTION_REG		0x02	// 0 - output, 1 - input
-#define I2C_GPIO_INPUT_REG		0x03	// 0 - low, 1- high
-#define I2C_GPIO_OUTPUT_REG		0x04	// 0 -low, 1 -high
-#define I2C_GPIO_PULLUP_REG		0x05	// 0 - disable, 1 - enable
-#define I2C_GPIO_MODE_REG		0x06	// 0 - push-pull, 1 - open-drain
-#define I2C_GPIO_BUFFER_REG		0x07	// 0 -TTL, 1 - CMOS
-#define I2C_GPIO_SLEW_REG		0x08	// 0 - unlimited, 1 - limited
-#define I2C_GPIO_IRQ_EN_REG		0x09
-#define I2C_GPIO_IRQ_SENSE_HI_REG	0x0A
-#define I2C_GPIO_IRQ_SENSE_LO_REG	0x0B
-#define I2C_GPIO_IRQ_STATUS_REG		0x0C
+#define I2C_GPIO_SERIAL_REG		0x02
+
+#define I2C_GPIO_DIRECTION_REG		0x06	// 0 - output, 1 - input
+#define I2C_GPIO_INPUT_REG		0x07	// 0 - low, 1- high
+#define I2C_GPIO_OUTPUT_REG		0x08	// 0 -low, 1 -high
+#define I2C_GPIO_PULLUP_REG		0x09	// 0 - disable, 1 - enable
+#define I2C_GPIO_MODE_REG		0x0A	// 0 - push-pull, 1 - open-drain
+#define I2C_GPIO_BUFFER_REG		0x0B	// 0 -TTL, 1 - CMOS
+#define I2C_GPIO_SLEW_REG		0x0C	// 0 - unlimited, 1 - limited
+#define I2C_GPIO_IRQ_EN_REG		0x0D	// 1 - enabled, 0 - disabled
+
+#define I2C_GPIO_IRQ_SENSE_HI_REG	0x0E
+#define I2C_GPIO_IRQ_SENSE_LO_REG	0x0F
+#define I2C_GPIO_IRQ_EDGE_NONE			(0)
+#define I2C_GPIO_IRQ_EDGE_RISING		(1)
+#define I2C_GPIO_IRQ_EDGE_FALLING		(2)
+#define I2C_GPIO_IRQ_EDGE_BOTH			(3)
+
+#define I2C_GPIO_IRQ_STATUS_REG		0x10
 
 struct i2c_gpio_pinctrl {
 	struct device		*dev;
 	struct i2c_client	*client;
-	struct pinctrl_dev	*pctldev;
+	struct pinctrl_dev	*pinctrl_dev;
 	struct pinctrl_desc	pinctrl_desc;
-	struct gpio_chip	gpio;
+
+	struct gpio_chip	gpio_chip;
 	struct regmap		*regmap;
-	struct mutex		lock;
+
+	struct irq_chip		irq_chip;
+	struct mutex		irq_lock;
+	u8 			irq_mask;
+	u16			irq_sense;
+	u8			irq_status;
 };
 
 static const struct pinctrl_pin_desc i2c_gpio_pins[] = {
@@ -63,20 +80,7 @@ static const struct pinctrl_pin_desc i2c_gpio_pins[] = {
 	PINCTRL_PIN(7, "gpio7"),
 };
 
-static const struct i2c_device_id i2c_gpio_id[] = {
-	{ "i2c-gpio", 0 },
-	{}
-};
-MODULE_DEVICE_TABLE(i2c, i2c_gpio_id);
-
-#ifdef CONFIG_OF
-static const struct of_device_id i2c_gpio_of_match[] = {
-	{ .compatible = "olimex,i2c-gpio" },
-	{}
-};
-MODULE_DEVICE_TABLE(of, i2c_gpio_of_match);
-#endif
-
+/*----------------------------------------------------------------------------*/
 static const struct regmap_range i2c_gpio_wr_ranges[] = {
 	{
 		.range_min = I2C_GPIO_DIRECTION_REG,
@@ -95,7 +99,7 @@ static const struct regmap_access_table i2c_gpio_wr_table = {
 
 static const struct regmap_range i2c_gpio_volatile_ranges[] = {
 	{
-		.range_min = I2C_GPIO_DIRECTION_REG,
+		.range_min = I2C_GPIO_INPUT_REG,
 		.range_max = I2C_GPIO_INPUT_REG,
 	},
 	{
@@ -157,7 +161,9 @@ static const struct reg_default i2c_gpio_reg_defaults[] = {
 	{.reg = I2C_GPIO_MODE_REG,		.def = 0x00},
 	{.reg = I2C_GPIO_BUFFER_REG,		.def = 0xFF},
 	{.reg = I2C_GPIO_SLEW_REG,		.def = 0xFF},
-	// TODO: Fill with IRQ registerst
+	{.reg = I2C_GPIO_IRQ_EN_REG,		.def = 0x00},
+	{.reg = I2C_GPIO_IRQ_SENSE_HI_REG,	.def = 0x00},
+	{.reg = I2C_GPIO_IRQ_SENSE_LO_REG,	.def = 0x00},
 };
 
 static const struct regmap_config i2c_gpio_regmap_config = {
@@ -174,22 +180,25 @@ static const struct regmap_config i2c_gpio_regmap_config = {
 	.wr_table = &i2c_gpio_wr_table,
 	.volatile_table = &i2c_gpio_volatile_table,
 	.precious_table = &i2c_gpio_precious_table,
+
 	.reg_defaults = i2c_gpio_reg_defaults,
 	.num_reg_defaults = ARRAY_SIZE(i2c_gpio_reg_defaults),
 };
 
-static int i2c_gpio_pinctrl_get_groups_count(struct pinctrl_dev *pctldev)
+/*----------------------------------------------------------------------------*/
+
+static int i2c_gpio_pinctrl_get_groups_count(struct pinctrl_dev *pinctrl_dev)
 {
 	return 0;
 }
 
-static const char *i2c_gpio_pinctrl_get_group_name(struct pinctrl_dev *pctldev,
+static const char *i2c_gpio_pinctrl_get_group_name(struct pinctrl_dev *pinctrl_dev,
 						   unsigned int group)
 {
 	return NULL;
 }
 
-static int i2c_gpio_pinctrl_get_group_pins(struct pinctrl_dev *pctldev,
+static int i2c_gpio_pinctrl_get_group_pins(struct pinctrl_dev *pinctrl_dev,
 					   unsigned int group,
 					   const unsigned int **pins,
 					   unsigned int *num_pins)
@@ -206,6 +215,8 @@ static const struct pinctrl_ops i2c_gpio_pinctrl_ops = {
 	.dt_free_map = pinctrl_utils_free_map,
 #endif
 };
+
+/*----------------------------------------------------------------------------*/
 
 static int i2c_gpio_get_direction(struct gpio_chip *chip,
 				  unsigned int offset)
@@ -285,11 +296,13 @@ static void i2c_gpio_set_multiple(struct gpio_chip *chip,
 	regmap_write_bits(pctl->regmap, I2C_GPIO_OUTPUT_REG, *mask, *bits);
 }
 
-static int i2c_gpio_pin_config_get(struct pinctrl_dev *pctldev,
+/*----------------------------------------------------------------------------*/
+
+static int i2c_gpio_pin_config_get(struct pinctrl_dev *pinctrl_dev,
 				   unsigned pin,
 				   unsigned long *config)
 {
-	struct i2c_gpio_pinctrl *pctl = pinctrl_dev_get_drvdata(pctldev);
+	struct i2c_gpio_pinctrl *pctl = pinctrl_dev_get_drvdata(pinctrl_dev);
 	unsigned int param = pinconf_to_config_param(*config);
 	unsigned int value;
 	unsigned int arg;
@@ -358,12 +371,12 @@ static int i2c_gpio_pin_config_get(struct pinctrl_dev *pctldev,
 	return 0;
 }
 
-static int i2c_gpio_pin_config_set(struct pinctrl_dev *pctldev,
+static int i2c_gpio_pin_config_set(struct pinctrl_dev *pinctrl_dev,
 				   unsigned pin,
 				   unsigned long *config,
 				   unsigned num_configs)
 {
-	struct i2c_gpio_pinctrl *pctl = pinctrl_dev_get_drvdata(pctldev);
+	struct i2c_gpio_pinctrl *pctl = pinctrl_dev_get_drvdata(pinctrl_dev);
 
 	unsigned int param, arg;
 	int cfg;
@@ -431,70 +444,126 @@ static const struct pinconf_ops i2c_gpio_pinconf_ops = {
 	.pin_config_get = i2c_gpio_pin_config_get,
 	.pin_config_set = i2c_gpio_pin_config_set,
 };
-static int i2c_gpio_pinctrl_init(struct i2c_gpio_pinctrl *pctl)
+
+/*----------------------------------------------------------------------------*/
+
+static void i2c_gpio_irq_mask(struct irq_data *data)
 {
-	int ret;
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(data);
+	struct i2c_gpio_pinctrl *pctl = gpiochip_get_data(gc);
 
-	pctl->pinctrl_desc.name = "i2c-gpio-pintrl";
-	pctl->pinctrl_desc.pins = i2c_gpio_pins;
-	pctl->pinctrl_desc.npins = ARRAY_SIZE(i2c_gpio_pins);
-	pctl->pinctrl_desc.pctlops = &i2c_gpio_pinctrl_ops;
-	pctl->pinctrl_desc.confops = &i2c_gpio_pinconf_ops;
-	pctl->pinctrl_desc.owner = THIS_MODULE;
+	dev_dbg(pctl->dev, "%s: GPIO%lu\n", __func__, data->hwirq);
+	pctl->irq_mask &= ~BIT(data->hwirq);
+}
 
-	ret = devm_pinctrl_register_and_init(pctl->dev, &pctl->pinctrl_desc,
-					     pctl, &pctl->pctldev);
-	if (ret) {
-		dev_err(pctl->dev, "Failed to register pinctrl device\n");
-		return ret;
+static void i2c_gpio_irq_unmask(struct irq_data *data)
+{
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(data);
+	struct i2c_gpio_pinctrl *pctl = gpiochip_get_data(gc);
+
+	dev_dbg(pctl->dev, "%s: GPIO%lu\n", __func__, data->hwirq);
+	pctl->irq_mask |= BIT(data->hwirq);
+}
+
+static void i2c_gpio_irq_bus_lock(struct irq_data *data)
+{
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(data);
+	struct i2c_gpio_pinctrl *pctl = gpiochip_get_data(gc);
+
+	dev_dbg(pctl->dev, "%s\n", __func__);
+	mutex_lock(&pctl->irq_lock);
+}
+
+static void i2c_gpio_irq_bus_sync_unlock(struct irq_data *data)
+{
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(data);
+	struct i2c_gpio_pinctrl *pctl = gpiochip_get_data(gc);
+
+	regmap_write(pctl->regmap, I2C_GPIO_IRQ_SENSE_LO_REG, pctl->irq_sense >> 8);
+	regmap_write(pctl->regmap, I2C_GPIO_IRQ_SENSE_HI_REG, pctl->irq_sense & 0xFF);
+	regmap_write(pctl->regmap, I2C_GPIO_IRQ_EN_REG, pctl->irq_mask);
+
+	dev_dbg(pctl->dev, "%s\n", __func__);
+	mutex_unlock(&pctl->irq_lock);
+}
+
+static int i2c_gpio_irq_set_type(struct irq_data *data, unsigned int flow_type)
+{
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(data);
+	struct i2c_gpio_pinctrl *pctl = gpiochip_get_data(gc);
+	unsigned int pos = data->hwirq;
+
+	dev_dbg(pctl->dev, "%s: pos: %u, type: %02x\n", __func__, pos, flow_type);
+
+	switch(flow_type & IRQ_TYPE_SENSE_MASK) {
+	case IRQ_TYPE_NONE:
+		pctl->irq_sense &= ~(I2C_GPIO_IRQ_EDGE_BOTH << (pos * 2));
+		break;
+	case IRQ_TYPE_EDGE_RISING:
+		pctl->irq_sense &= ~(I2C_GPIO_IRQ_EDGE_BOTH << (pos * 2));
+		pctl->irq_sense |= I2C_GPIO_IRQ_EDGE_RISING << (pos * 2);
+		break;
+	case IRQ_TYPE_EDGE_FALLING:
+		pctl->irq_sense &= ~(I2C_GPIO_IRQ_EDGE_BOTH << (pos * 2));
+		pctl->irq_sense |= I2C_GPIO_IRQ_EDGE_FALLING << (pos * 2);
+		break;
+	case IRQ_TYPE_EDGE_BOTH:
+		pctl->irq_sense |= I2C_GPIO_IRQ_EDGE_BOTH << (pos * 2);
+		break;
+	default:
+		return -EINVAL;
 	}
-
-	ret = pinctrl_enable(pctl->pctldev);
-	if (ret) {
-		dev_err(pctl->dev, "Failed to enable pinctrl device\n");
-		return ret;
-	}
-
 	return 0;
 }
 
-static int i2c_gpio_gpiochip_init(struct i2c_gpio_pinctrl *pctl)
+static irqreturn_t i2c_gpio_irq_thread_fn(int irq, void *dev_id)
 {
-	int ret;
+	struct i2c_gpio_pinctrl *pctl = (struct i2c_gpio_pinctrl *)dev_id;
+	long unsigned int n, status;
+	int err;
+	u32 val;
 
-	pctl->gpio.label = devm_kstrdup(pctl->dev, pctl->client->name, GFP_KERNEL);
-	pctl->gpio.base = -1;
-	pctl->gpio.ngpio = ARRAY_SIZE(i2c_gpio_pins);
-	pctl->gpio.get_direction = i2c_gpio_get_direction;
-	pctl->gpio.direction_input = i2c_gpio_direction_input;
-	pctl->gpio.direction_output = i2c_gpio_direction_output;
-	pctl->gpio.get = i2c_gpio_get;
-	pctl->gpio.set = i2c_gpio_set;
-	pctl->gpio.set_multiple = i2c_gpio_set_multiple;
-	pctl->gpio.set_config = gpiochip_generic_config;
-	pctl->gpio.parent = pctl->dev;
-#ifdef CONFIG_OF_GPIO
-	pctl->gpio.of_node = pctl->dev->of_node;
+	err = regmap_read(pctl->regmap, I2C_GPIO_IRQ_STATUS_REG, &val);
+	if (err < 0)
+		return IRQ_NONE;
+	status = val;
+
+	dev_dbg(pctl->dev, "irq: %02lx\n", status);
+
+	for_each_set_bit(n, &status, pctl->gpio_chip.ngpio)
+		handle_nested_irq(irq_find_mapping(pctl->gpio_chip.irq.domain, n));
+
+	return IRQ_HANDLED;
+}
+
+/*----------------------------------------------------------------------------*/
+static const struct i2c_device_id i2c_gpio_id[] = {
+	{ "i2c-gpio", 0 },
+	{}
+};
+MODULE_DEVICE_TABLE(i2c, i2c_gpio_id);
+
+#ifdef CONFIG_OF
+static const struct of_device_id i2c_gpio_of_match[] = {
+	{ .compatible = "olimex,i2c-gpio" },
+	{}
+};
+MODULE_DEVICE_TABLE(of, i2c_gpio_of_match);
 #endif
-	pctl->gpio.can_sleep = true;
-
-	ret = devm_gpiochip_add_data(pctl->dev, &pctl->gpio, pctl);
-	if (ret)
-		return ret;
-
-	return 0;
-}
 
 static int i2c_gpio_probe(struct i2c_client *client,
 			  const struct i2c_device_id *id)
 {
 	struct device *dev = &client->dev;
 	struct i2c_gpio_pinctrl *pctl;
+	u32 irq_flags;
+	u32 serial;
+	u8 fw;
 	int ret;
 
 	if (!i2c_check_functionality(client->adapter,
 				     I2C_FUNC_SMBUS_BYTE_DATA |
-				     I2C_FUNC_SMBUS_WRITE_WORD_DATA))
+				     I2C_FUNC_SMBUS_I2C_BLOCK))
 		return -ENOSYS;
 
 	/* Check device ID */
@@ -515,8 +584,17 @@ static int i2c_gpio_probe(struct i2c_client *client,
 		dev_err(dev, "Failed to get firmware revision: %d\n", ret);
 		return ret;
 	}
+	fw = ret;
 
-	dev_info(dev, "Found MOD-I2C-GPIO, firmware revision: %02x\n", ret);
+	ret = i2c_smbus_read_i2c_block_data(client,
+					    I2C_GPIO_SERIAL_REG,
+					    4, (u8 *)&serial);
+	if (ret < 0) {
+		dev_err(dev, "Failed to get serial number: %d\n", ret);
+		return ret;
+	}
+
+	dev_info(dev, "Found MOD-I2C-GPIO, firmware revision: %02x, serial number: %08x\n", fw, serial);
 
 	pctl = devm_kzalloc(dev, sizeof(*pctl), GFP_KERNEL);
 	if (!pctl)
@@ -527,27 +605,106 @@ static int i2c_gpio_probe(struct i2c_client *client,
 	pctl->dev = dev;
 	pctl->client = client;
 
+	/* Initialize regmap */
 	pctl->regmap = devm_regmap_init(dev, NULL, pctl,
 					&i2c_gpio_regmap_config);
 	if (IS_ERR(pctl->regmap)) {
 		ret = PTR_ERR(pctl->regmap);
-		dev_err(dev, "Failed to allocate register map: %d\n", ret);
+		dev_err(dev, "Failed to initialize regmap\n");
 		return ret;
 	}
 
-	mutex_init(&pctl->lock);
-
 	/* Initialize pinctrl part */
-	ret = i2c_gpio_pinctrl_init(pctl);
-	if (ret)
-		return ret;
-	dev_info(dev, "Registered pinctrl part\n");
+	pctl->pinctrl_desc.name = "i2c-gpio-pintrl";
+	pctl->pinctrl_desc.pins = i2c_gpio_pins;
+	pctl->pinctrl_desc.npins = ARRAY_SIZE(i2c_gpio_pins);
+	pctl->pinctrl_desc.pctlops = &i2c_gpio_pinctrl_ops;
+	pctl->pinctrl_desc.confops = &i2c_gpio_pinconf_ops;
+	pctl->pinctrl_desc.owner = THIS_MODULE;
 
-	/* Initialize gpio controler part */
-	ret = i2c_gpio_gpiochip_init(pctl);
+	ret = devm_pinctrl_register_and_init(dev, &pctl->pinctrl_desc,
+					     pctl, &pctl->pinctrl_dev);
+	if (ret) {
+		dev_err(pctl->dev, "Failed to register pinctrl\n");
+		return ret;
+	}
+
+	ret = pinctrl_enable(pctl->pinctrl_dev);
+	if (ret) {
+		dev_err(dev, "Failed to enable pinctrl\n");
+		return ret;
+	}
+
+	/* Initialize gpio controller */
+	pctl->gpio_chip.label = devm_kstrdup(dev, client->name, GFP_KERNEL);
+	pctl->gpio_chip.base = -1;
+	pctl->gpio_chip.ngpio = ARRAY_SIZE(i2c_gpio_pins);
+	pctl->gpio_chip.get_direction = i2c_gpio_get_direction;
+	pctl->gpio_chip.direction_input = i2c_gpio_direction_input;
+	pctl->gpio_chip.direction_output = i2c_gpio_direction_output;
+	pctl->gpio_chip.get = i2c_gpio_get;
+	pctl->gpio_chip.set = i2c_gpio_set;
+	pctl->gpio_chip.set_multiple = i2c_gpio_set_multiple;
+	pctl->gpio_chip.set_config = gpiochip_generic_config;
+	pctl->gpio_chip.parent = dev;
+#ifdef CONFIG_OF_GPIO
+	pctl->gpio_chip.of_node = dev->of_node;
+#endif
+	pctl->gpio_chip.can_sleep = true;
+
+	ret = devm_gpiochip_add_data(dev, &pctl->gpio_chip, pctl);
 	if (ret)
 		return ret;
-	dev_info(dev, "Registered gpio controller part\n");
+
+	/* Initialize irq controler part */
+	if (client->irq) {
+		mutex_init(&pctl->irq_lock);
+
+		pctl->irq_chip.name = devm_kstrdup(dev, client->name,
+						   GFP_KERNEL);
+		pctl->irq_chip.irq_mask = i2c_gpio_irq_mask;
+		pctl->irq_chip.irq_unmask = i2c_gpio_irq_unmask;
+		pctl->irq_chip.irq_set_type = i2c_gpio_irq_set_type;
+		pctl->irq_chip.irq_bus_lock = i2c_gpio_irq_bus_lock;
+		pctl->irq_chip.irq_bus_sync_unlock = i2c_gpio_irq_bus_sync_unlock;
+
+		pctl->irq_mask = 0;
+		pctl->irq_sense = 0;
+
+		ret = gpiochip_irqchip_add_nested(&pctl->gpio_chip,
+						  &pctl->irq_chip, 0,
+						  handle_bad_irq,
+						  IRQ_TYPE_NONE);
+		if (ret < 0) {
+			dev_err(dev, "Could not connect irqchip to gpiochip\n");
+			return ret;
+		}
+
+		irq_flags = irq_get_trigger_type(client->irq);
+		if (irq_flags == IRQF_TRIGGER_NONE)
+			irq_flags |= IRQF_TRIGGER_RISING;
+		irq_flags |= IRQF_ONESHOT | IRQF_SHARED;
+
+		ret = devm_request_threaded_irq(dev, client->irq, NULL,
+						i2c_gpio_irq_thread_fn,
+						irq_flags,
+						dev_name(dev), pctl);
+		if (ret < 0) {
+			dev_err(dev, "Failed to request irq: %d\n", ret);
+			return ret;
+		}
+
+		gpiochip_set_nested_irqchip(&pctl->gpio_chip,
+					    &pctl->irq_chip,
+					    client->irq);
+
+		dev_info(dev, "Registered irq controller part\n");
+	} else {
+		dev_dbg(dev, "Interrupts are not enabled\n");
+	}
+
+
+
 
 	return 0;
 }

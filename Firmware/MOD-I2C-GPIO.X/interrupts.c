@@ -66,10 +66,12 @@ static inline void __IOCInterrupt(void)
              * Rising edge
              * Check if sense is correct
              */
-            for(i = 0; i < 8; i++) {
-                if(regmap.interrupt_sense & (0x02 << i*2)) {
-                    regmap.interrupt_status |= (0x01 << i);
-                    INT_ASSERT();
+            for (i = 0; i < 8; i++) {
+                if (mask & (1 << i)) {
+                    if (regmap.interrupt_sense & (0x01 << i*2)) {
+                        regmap.interrupt_status |= mask;
+                        INT_ASSERT();
+                    }
                 }
             }
             
@@ -80,12 +82,13 @@ static inline void __IOCInterrupt(void)
              * Check if sense is correct
              */
             for(i = 0; i < 8; i++) {
-                if(regmap.interrupt_sense & (0x01 << i*2)) {
-                    regmap.interrupt_status |= (0x01 << i);
-                    INT_ASSERT();
-                }
-            }
-            
+                if(mask & (1 << i)) {
+                    if(regmap.interrupt_sense & (0x02 << i*2)) {
+                        regmap.interrupt_status |= mask;
+                        INT_ASSERT();
+                    }
+                }                
+            }            
         }
     }
     
@@ -114,21 +117,23 @@ static inline void __MSSPInterrupt(void)
         if((SSP1STATbits.D_nA) && (SSP1CON2bits.ACKSTAT))
         {
             if (pointer >= (uint8_t *)&regmap.interrupt_status)
-                pointer = &dummy;
+                pointer = (uint8_t *)&regmap;
             else
                 ++pointer;
         }
         else
         {
             /* Got read request */
+            
             SSPBUF = *pointer;
-//            SSPBUF = 0xAA;
             
             /* Clear pending INT on INTERRUPT_STATUS read */
             if(pointer == (uint8_t *)&regmap.interrupt_status) {
                 regmap.interrupt_status = 0x00;
                 INT_DEASSERT();
             }
+            
+            ++pointer;
                 
         }
     }
@@ -148,8 +153,7 @@ static inline void __MSSPInterrupt(void)
             if(data < sizeof(struct registers))
             pointer = (uint8_t *)&regmap + data;
         } else {
-            if(pointer != &regmap.device && 
-                    pointer != &regmap.firmware &&
+            if(pointer >= &regmap.dir &&
                     pointer != &regmap.input &&
                     pointer != &regmap.interrupt_status)
                 *pointer = data;

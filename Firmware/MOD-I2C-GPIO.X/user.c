@@ -21,6 +21,7 @@
 
 static void __InitGPIO(void);
 static void __InitMSSP(void);
+static void __InitUnused(void);
 static void __InitInterrupts(void);
 
 
@@ -107,6 +108,7 @@ void InitApp(void)
 {
     __InitGPIO();
     __InitMSSP();
+    __InitUnused();
     __InitInterrupts();
 }
 
@@ -159,6 +161,20 @@ static void __InitGPIO(void)
     IOCCN = 0x3C;
     IOCCF = 0;
     
+}
+
+/**
+ * @brief Initialize (disable) unused peripheries
+ * 
+ */
+static void __InitUnused(void)
+{
+    PMD0 = 0x7A;
+    PMD1 = 0xFF;
+    PMD2 = 0xFF;
+    PMD3 = 0xFF;
+    PMD4 = 0xFD;
+    PMD5 = 0xFF;
 }
 
 /**

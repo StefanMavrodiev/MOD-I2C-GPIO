@@ -11,18 +11,48 @@
 \usepackage{lipsum}
 \usepackage{float}
 \usepackage{parskip}
+\usepackage[hidelinks]{hyperref}
+\usepackage{xcolor}
+
+%
+% Change links style
+%===================
+\hypersetup{
+	colorlinks=true,
+	linkcolor={red!50!black},
+	urlcolor={blue!80!black}
+}
 
 %
 % Change default font
 % ===================
 \renewcommand{\familydefault}{\sfdefault}
 
+%
+% Setup geometry
+%===============
 \geometry{
 	a4paper,
 	total={170mm,257mm},
 	left=20mm,
 	top=20mm,
 }
+
+%
+% Setup memory region comamnds
+%=============================
+\newcommand{\memsection}[4]{
+	\bytefieldsetup{bitheight=#3\baselineskip}
+	\bitbox[]{4}{
+		\texttt{#1}
+		\\
+		\vspace{#3\baselineskip}
+		\vspace{-2\baselineskip}
+		\vspace{-#3pt}
+		\texttt{#2}
+		}
+	\bitbox{32}{#4}
+	}
 
 
 \title{MOD-I2C-GPIO}
@@ -31,6 +61,7 @@
 \begin{document}
 	\maketitle
 	\tableofcontents
+	\listoffigures
 	\pagebreak
 	
 	\section{Description}
@@ -48,25 +79,29 @@
 	\begin{figure}[H]
 		\centering
 		\begin{bytefield}[
+			leftcurly=.,
+			leftcurlyspace=0pt,
+			bitwidth=0.08\linewidth,
 			bitheight=2\baselineskip]{8}
 			\begin{rightwordgroup}{Read-only}
-				\bitbox[]{4}{\texttt{0x00}} & \bitbox{32}{Device ID} \\
-				\bitbox[]{4}{\texttt{0x01}} & \bitbox{32}{Firmware version}
+				\bitbox[]{1}{\texttt{0x00}} & \wordbox{1}{Device ID} \\
+				\bitbox[]{1}{\texttt{0x01}} & \wordbox{1}{Firmware version} \\
+				\bitbox[]{1}{\texttt{0x02}} & \wordbox[ltr]{1}{} \\
+				\bitbox[]{1}{} & \wordbox[lr]{1}{Serial number} \\
+				\bitbox[]{1}{\texttt{0x05}} & \wordbox[lbr]{1}{}
 			\end{rightwordgroup} \\
-				\bitbox[]{4}{\texttt{0x02}} & \bitbox{32}{Data direction} \\
+			\bitbox[]{1}{\texttt{0x02}} & \wordbox{1}{Data direction} \\
+			\bitbox[]{1}{\texttt{0x03}} & \wordbox{1}{Input data} \\
+			\bitbox[]{1}{\texttt{0x04}} & \wordbox{1}{Output data} \\
+			\bitbox[]{1}{\texttt{0x05}} & \wordbox{1}{Pull-up enable} \\
+			\bitbox[]{1}{\texttt{0x06}} & \wordbox{1}{Output mode} \\
+			\bitbox[]{1}{\texttt{0x07}} & \wordbox{1}{Input buffer mode} \\
+			\bitbox[]{1}{\texttt{0x08}} & \wordbox{1}{Input slew-rate control} \\
+			\bitbox[]{1}{\texttt{0x09}} & \wordbox{1}{Interrupt enable} \\
+			\bitbox[]{1}{\texttt{0x0A}} & \wordbox{1}{Interrupt sense high byte} \\
+			\bitbox[]{1}{\texttt{0x0B}} & \wordbox{1}{Interrupt sense low byte} \\
 			\begin{rightwordgroup}{Read-only}
-				\bitbox[]{4}{\texttt{0x03}} & \bitbox{32}{Input data}
-			\end{rightwordgroup} \\
-				\bitbox[]{4}{\texttt{0x04}} & \bitbox{32}{Output data} \\
-				\bitbox[]{4}{\texttt{0x05}} & \bitbox{32}{Pull-up enable} \\
-				\bitbox[]{4}{\texttt{0x06}} & \bitbox{32}{Output mode} \\
-				\bitbox[]{4}{\texttt{0x07}} & \bitbox{32}{Input buffer mode} \\
-				\bitbox[]{4}{\texttt{0x08}} & \bitbox{32}{Input slew-rate control} \\
-				\bitbox[]{4}{\texttt{0x09}} & \bitbox{32}{Interrupt enable} \\
-				\bitbox[]{4}{\texttt{0x0A}} & \bitbox{32}{Interrupt sense high byte} \\
-				\bitbox[]{4}{\texttt{0x0B}} & \bitbox{32}{Interrupt sense low byte} \\
-			\begin{rightwordgroup}{Read-only}
-				\bitbox[]{4}{\texttt{0x0C}} & \bitbox{32}{Interrupt status}
+				\bitbox[]{1}{\texttt{0x0C}} & \bitbox{8}{Interrupt status}
 			\end{rightwordgroup} 
 				
 		\end{bytefield}
@@ -321,7 +356,7 @@
 	the pull-up is enabled is DAT bit is set. On DAT clear, the pull-up becomes inactive. 
 	
 	\begin{tabular}{ l c }
-		Address: & 0x04 \\
+		Address: & 0x05 \\
 		Default: & 0xFF \\
 	\end{tabular}
 	
@@ -377,12 +412,197 @@
 			\item 0: Disables GPIO0 internal pull-up resistor
 			\item 1: Enables GPIO0 internal pull-up resistor
 		\end{itemize}
+	\end{itemize}	
+	
+	\subsection{Output mode}
+	
+	All outputs can be configured either as push-pull or open-drain.
+	
+	\begin{tabular}{ l c }
+		Address: & 0x06 \\
+		Default: & 0x00 \\
+	\end{tabular}
+	
+	\begin{figure}[H]
+		\centering
+		\begin{bytefield}[
+			bitwidth=0.1\linewidth]{8}
+			\bitheader[endianness=big, bitformatting={\small\bfseries}]{0-7} \\
+			\bitboxes{1}{{OM7} {OM6} {OM5} {OM4} {OM3} {OM2} {OM1} {OM0}}
+		\end{bytefield}
+		\caption{Output mode control register}
+		\label{reg:output_mode}
+	\end{figure}
+	
+	\begin{itemize}
+		\item \textbf{OM7}: GPIO7 output mode control bit
+		\begin{itemize}
+			\item 0: Drive GPIO7 as push-pull
+			\item 1: Drive GPIO7 as open-drain
+		\end{itemize}
+		\item \textbf{OM6}: GPIO6 output mode control bit
+		\begin{itemize}
+			\item 0: Drive GPIO6 as push-pull
+			\item 1: Drive GPIO6 as open-drain
+		\end{itemize}
+		\item \textbf{OM5}: GPIO5 output mode control bit
+		\begin{itemize}
+			\item 0: Drive GPIO5 as push-pull
+			\item 1: Drive GPIO5 as open-drain
+		\end{itemize}
+		\item \textbf{OM4}: GPIO4 output mode control bit
+		\begin{itemize}
+			\item 0: Drive GPIO4 as push-pull
+			\item 1: Drive GPIO4 as open-drain
+		\end{itemize}
+		\item \textbf{OM3}: GPIO5 output mode control bit
+		\begin{itemize}
+			\item 0: Drive GPIO3 as push-pull
+			\item 1: Drive GPIO3 as open-drain
+		\end{itemize}
+		\item \textbf{OM2}: GPIO2 output mode control bit
+		\begin{itemize}
+			\item 0: Drive GPIO2 as push-pull
+			\item 1: Drive GPIO2 as open-drain
+		\end{itemize}
+		\item \textbf{OM1}: GPIO1 output mode control bit
+		\begin{itemize}
+			\item 0: Drive GPIO1 as push-pull
+			\item 1: Drive GPIO1 as open-drain
+		\end{itemize}
+		\item \textbf{OM0}: GPIO0 output mode control bit
+		\begin{itemize}
+			\item 0: Drive GPIO0 as push-pull
+			\item 1: Drive GPIO0 as open-drain
+		\end{itemize}
+	\end{itemize}
+	
+	
+	\subsection{Input buffer}
+	
+	Input levels can be configured for either CMOS or TTL operation.
+	
+	\begin{tabular}{ l c }
+		Address: & 0x07 \\
+		Default: & 0xFF \\
+	\end{tabular}
+	
+	\begin{figure}[H]
+		\centering
+		\begin{bytefield}[
+			bitwidth=0.1\linewidth]{8}
+			\bitheader[endianness=big, bitformatting={\small\bfseries}]{0-7} \\
+			\bitboxes{1}{{IB7} {IB6} {IB5} {IB4} {IB3} {IB2} {IB1} {IB0}}
+		\end{bytefield}
+		\caption{Input buffer control register}
+		\label{reg:input_buffer}
+	\end{figure}
+	
+	\begin{itemize}
+		\item \textbf{IB7}: GPIO7 input buffer control bit
+		\begin{itemize}
+			\item 0: TTL input on GPIO7
+			\item 1: CMOS ST input on GPIO7
+		\end{itemize}
+		\item \textbf{IB6}: GPIO6 input buffer control bit
+		\begin{itemize}
+			\item 0: TTL input on GPIO6
+			\item 1: CMOS ST input on GPIO6
+		\end{itemize}
+		\item \textbf{IB5}: GPIO5 input buffer control bit
+		\begin{itemize}
+			\item 0: TTL input on GPIO5
+			\item 1: CMOS ST input on GPIO5
+		\end{itemize}
+		\item \textbf{IB4}: GPIO4 input buffer control bit
+		\begin{itemize}
+			\item 0: TTL input on GPIO4
+			\item 1: CMOS ST input on GPIO4
+		\end{itemize}
+		\item \textbf{IB3}: GPIO3 input buffer control bit
+		\begin{itemize}
+			\item 0: TTL input on GPIO3
+			\item 1: CMOS ST input on GPIO3
+		\end{itemize}
+		\item \textbf{IB2}: GPIO2 input buffer control bit
+		\begin{itemize}
+			\item 0: TTL input on GPIO2
+			\item 1: CMOS ST input on GPIO2
+		\end{itemize}
+		\item \textbf{IB1}: GPIO1 input buffer control bit
+		\begin{itemize}
+			\item 0: TTL input on GPIO1
+			\item 1: CMOS ST input on GPIO1
+		\end{itemize}
+		\item \textbf{IB0}: GPIO0 input buffer control bit
+		\begin{itemize}
+			\item 0: TTL input on GPIO0
+			\item 1: CMOS ST input on GPIO0
+		\end{itemize}
+	\end{itemize}
+	
+	\subsection{Input slew-rate control}
+	
+	\begin{tabular}{ l c }
+		Address: & 0x08 \\
+		Default: & 0xFF \\
+	\end{tabular}
+	
+	\begin{figure}[H]
+		\centering
+		\begin{bytefield}[
+			bitwidth=0.1\linewidth]{8}
+			\bitheader[endianness=big, bitformatting={\small\bfseries}]{0-7} \\
+			\bitboxes{1}{{SR7} {SR6} {SR5} {SR4} {SR3} {SR2} {SR1} {SR0}}
+		\end{bytefield}
+		\caption{Input slew-rate control register}
+		\label{reg:input_slew}
+	\end{figure}
+	
+	\begin{itemize}
+		\item \textbf{SR7}: GPIO7 input slew-rate control bit
+		\begin{itemize}
+			\item 0: Port pin slews at maximum rate
+			\item 1: Port pin slew rate is limited
+		\end{itemize}
+		\item \textbf{SR6}: GPIO6 input slew-rate control bit
+		\begin{itemize}
+			\item 0: Port pin slews at maximum rate
+			\item 1: Port pin slew rate is limited
+		\end{itemize}
+		\item \textbf{SR5}: GPIO5 input slew-rate control bit
+		\begin{itemize}
+			\item 0: Port pin slews at maximum rate
+			\item 1: Port pin slew rate is limited
+		\end{itemize}
+		\item \textbf{SR4}: GPIO4 input slew-rate control bit
+		\begin{itemize}
+			\item 0: Port pin slews at maximum rate
+			\item 1: Port pin slew rate is limited
+		\end{itemize}
+		\item \textbf{SR3}: GPIO3 input slew-rate control bit
+		\begin{itemize}
+			\item 0: Port pin slews at maximum rate
+			\item 1: Port pin slew rate is limited
+		\end{itemize}
+		\item \textbf{SR2}: GPIO2 input slew-rate control bit
+		\begin{itemize}
+			\item 0: Port pin slews at maximum rate
+			\item 1: Port pin slew rate is limited
+		\end{itemize}
+		\item \textbf{SR1}: GPIO1 input slew-rate control bit
+		\begin{itemize}
+			\item 0: Port pin slews at maximum rate
+			\item 1: Port pin slew rate is limited
+		\end{itemize}
+		\item \textbf{SR0}: GPIO0 input slew-rate control bit
+		\begin{itemize}
+			\item 0: Port pin slews at maximum rate
+			\item 1: Port pin slew rate is limited
+		\end{itemize}
 		
 	\end{itemize}
-
 	
 	
 
-	
-	
 \end{document}
