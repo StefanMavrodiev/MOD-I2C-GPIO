@@ -47,18 +47,18 @@ static inline void __IOCInterrupt(void)
     iocc = IOCCF;
     
     /* Read pin inputs */
-    data = (PORTA & 0x07) | ((PORTA & 0x10) >> 1);
-    data |= (PORTC & 0x3C) << 2;
+    data = (uint8_t)((PORTA & 0x07) | ((PORTA & 0x10) >> 1));
+    data |= (uint8_t)((PORTC & 0x3C) << 2);
     
     /* Mask data */
     regmap.input = data;
     
     /* Map IOCxF to regmap */
-    ioc = (ioca & 0x07) | ((ioca & 0x10) >> 1);
-    ioc |= (iocc & 0x3C) << 2;
+    ioc = (uint8_t)((ioca & 0x07) | ((ioca & 0x10) >> 1));
+    ioc |= (uint8_t)((iocc & 0x3C) << 2);
     
     /* Check for INT request */
-    mask = ioc & regmap.interrupt_enable;
+    mask = (uint8_t)(ioc & regmap.interrupt_enable);
     if (mask) {
         if (regmap.input & mask) {
             
@@ -68,7 +68,7 @@ static inline void __IOCInterrupt(void)
              */
             for (i = 0; i < 8; i++) {
                 if (mask & (1 << i)) {
-                    if (regmap.interrupt_sense & (0x01 << i*2)) {
+                    if (regmap.interrupt_sense & (uint16_t)((0x01 << i*2))) {
                         regmap.interrupt_status |= mask;
                         INT_ASSERT();
                     }
@@ -83,7 +83,7 @@ static inline void __IOCInterrupt(void)
              */
             for(i = 0; i < 8; i++) {
                 if(mask & (1 << i)) {
-                    if(regmap.interrupt_sense & (0x02 << i*2)) {
+                    if(regmap.interrupt_sense & (uint16_t)((0x02 << i*2))) {
                         regmap.interrupt_status |= mask;
                         INT_ASSERT();
                     }
@@ -93,8 +93,8 @@ static inline void __IOCInterrupt(void)
     }
     
     /* Clear IOC flags */
-    IOCAF &= ~(ioca);
-    IOCCF &= ~(iocc);           
+    IOCAF &= (uint8_t)(~(ioca));
+    IOCCF &= (uint8_t)(~(iocc));           
 }
 /**
  * @brief Handle MSSP interrupts
@@ -109,20 +109,16 @@ static inline void __MSSPInterrupt(void)
     /* Clear BF */
     data = SSP1BUF;    
     
-    if(SSP1STATbits.R_nW)
-    {
+    if(SSP1STATbits.R_nW) {
         /**
          * We've got READ from MASTER
          */
-        if((SSP1STATbits.D_nA) && (SSP1CON2bits.ACKSTAT))
-        {
+        if((SSP1STATbits.D_nA) && (SSP1CON2bits.ACKSTAT)) {
             if (pointer >= (uint8_t *)&regmap.interrupt_status)
                 pointer = (uint8_t *)&regmap;
             else
                 ++pointer;
-        }
-        else
-        {
+        } else {
             /* Got read request */
             
             SSPBUF = *pointer;
@@ -133,34 +129,29 @@ static inline void __MSSPInterrupt(void)
                 INT_DEASSERT();
             }
             
-            ++pointer;
-                
+            ++pointer;  
         }
-    }
-    else if(!SSP1STATbits.D_nA)
-    {
+    } else if(!SSP1STATbits.D_nA) {
         /**
          * Got write request.
          * Next will be registry address
          */
         req = I2C_NEXT_IS_ADDR;
-    }
-    
-    else
-    {
+    } else {
         /* Process data */
         if(req == I2C_NEXT_IS_ADDR) {
             if(data < sizeof(struct registers))
-            pointer = (uint8_t *)&regmap + data;
+                pointer = (uint8_t *)&regmap + data;
         } else {
             if(pointer >= &regmap.dir &&
                     pointer != &regmap.input &&
                     pointer != &regmap.interrupt_status)
                 *pointer = data;
+            
+            ++pointer;
         }
         
         req = I2C_NEXT_IS_DATA;        
-        
     }
 
     /* Release SCL */

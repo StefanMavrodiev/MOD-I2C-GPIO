@@ -5,6 +5,8 @@
 #define I2C_SLAVE_ADDRESS   0x3B
 #define I2C_SLAVE_MASK      0x7F
 
+#define FLASH_LAST_ADDRESS  0x1000
+
 /******************************************************************************/
 /* User Function Prototypes                                                   */
 /******************************************************************************/

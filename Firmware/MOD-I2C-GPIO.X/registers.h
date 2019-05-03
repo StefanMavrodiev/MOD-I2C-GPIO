@@ -28,6 +28,17 @@ struct registers {
     uint32_t serial;
     
     /**
+     * Set pin function. Can be;
+     * 1 - ADC/DAC
+     * 0 - GPIO
+     * 
+     * @note This apply only for PIN0 and PIN2
+     * 
+     * Default value: 0x00
+     */
+    uint8_t function;
+    
+    /**
      * Set direction. Can be:
      * 1 - input
      * 0 - output

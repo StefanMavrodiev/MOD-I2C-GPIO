@@ -63,19 +63,26 @@
 	\tableofcontents
 	\listoffigures
 	\pagebreak
-	
-	\section{Description}
-	\begin{multicols}{2}
-		MOD-I2C-GPIO implements simple GPIO expander. The project is based on PIC16F18324.
-		The device has the following capabilities:
 
-	\end{multicols}
-	
+	\section{Description}
+		MOD-I2C-GPIO implements simple GPIO expander.
+		The project is based on PIC16F18324 with following capabilities:
+		\begin{itemize}
+			\item 8 GPIOs
+			\begin{itemize}
+				\item Input level can be ether CMOS or TTL
+				\item Output can be OD or PP
+				\item All pins supports weak-pull ups
+				\item Interrupts can be used on all pins
+			\end{itemize}
+			\item 1 configurable DAC
+			\item 1 configurable ADC
+		\end{itemize}
+
+
 
 	\section{Memory map}
-	\begin{multicols}{2}
 	The device has memory map as shown on Figure \ref{fig:mem_map}.
-	\end{multicols}
 	\begin{figure}[H]
 		\centering
 		\begin{bytefield}[
@@ -90,37 +97,38 @@
 				\bitbox[]{1}{} & \wordbox[lr]{1}{Serial number} \\
 				\bitbox[]{1}{\texttt{0x05}} & \wordbox[lbr]{1}{}
 			\end{rightwordgroup} \\
-			\bitbox[]{1}{\texttt{0x02}} & \wordbox{1}{Data direction} \\
-			\bitbox[]{1}{\texttt{0x03}} & \wordbox{1}{Input data} \\
-			\bitbox[]{1}{\texttt{0x04}} & \wordbox{1}{Output data} \\
-			\bitbox[]{1}{\texttt{0x05}} & \wordbox{1}{Pull-up enable} \\
-			\bitbox[]{1}{\texttt{0x06}} & \wordbox{1}{Output mode} \\
-			\bitbox[]{1}{\texttt{0x07}} & \wordbox{1}{Input buffer mode} \\
-			\bitbox[]{1}{\texttt{0x08}} & \wordbox{1}{Input slew-rate control} \\
-			\bitbox[]{1}{\texttt{0x09}} & \wordbox{1}{Interrupt enable} \\
-			\bitbox[]{1}{\texttt{0x0A}} & \wordbox{1}{Interrupt sense high byte} \\
-			\bitbox[]{1}{\texttt{0x0B}} & \wordbox{1}{Interrupt sense low byte} \\
+			\bitbox[]{1}{\texttt{0x06}} & \wordbox{1}{Pin function} \\
+			\bitbox[]{1}{\texttt{0x07}} & \wordbox{1}{Data direction} \\
+			\bitbox[]{1}{\texttt{0x08}} & \wordbox{1}{Input data} \\
+			\bitbox[]{1}{\texttt{0x09}} & \wordbox{1}{Output data} \\
+			\bitbox[]{1}{\texttt{0x0A}} & \wordbox{1}{Pull-up enable} \\
+			\bitbox[]{1}{\texttt{0x0B}} & \wordbox{1}{Output mode} \\
+			\bitbox[]{1}{\texttt{0x0C}} & \wordbox{1}{Input buffer mode} \\
+			\bitbox[]{1}{\texttt{0x0D}} & \wordbox{1}{Input slew-rate control} \\
+			\bitbox[]{1}{\texttt{0x0E}} & \wordbox{1}{Interrupt enable} \\
+			\bitbox[]{1}{\texttt{0x0F}} & \wordbox{1}{Interrupt sense low byte} \\
+			\bitbox[]{1}{\texttt{0x10}} & \wordbox{1}{Interrupt sense high byte} \\
 			\begin{rightwordgroup}{Read-only}
-				\bitbox[]{1}{\texttt{0x0C}} & \bitbox{8}{Interrupt status}
-			\end{rightwordgroup} 
-				
+				\bitbox[]{1}{\texttt{0x11}} & \bitbox{8}{Interrupt status}
+			\end{rightwordgroup}
+
 		\end{bytefield}
 		\caption{Memory layout}
 		\label{fig:mem_map}
 	\end{figure}
-	
+
 	\section{Device registers}
 	sdasd
-	
+
 	\subsection{Device ID}
-	
+
 		This register holds the unique device identification. It can be used for detection. The register is read-only, so it cannot change.
-		
+
 		\begin{tabular}{ l c }
 			Address: & 0x00 \\
 			Default: & 0x43 \\
 		\end{tabular}
-	
+
 		\begin{figure}[H]
 			\centering
 			\begin{bytefield}[
@@ -131,17 +139,17 @@
 			\caption{Device ID register}
 			\label{reg:device_id}
 		\end{figure}
-	
+
 	\subsection{Firmware version}
-	
+
 		Each new firmware release has its own revision. It's stored to this read-only register.
 		The first release is 0x01, the second - 0x02, etc.
-		
+
 		\begin{tabular}{ l c }
 			Address: & 0x01 \\
 			Default: & - \\
 		\end{tabular}
-		
+
 		\begin{figure}[H]
 			\centering
 			\begin{bytefield}[
@@ -152,17 +160,75 @@
 			\caption{Firmware revision register}
 			\label{reg:fw_rev}
 		\end{figure}
-	
-	\subsection{Data direction}
-	
-		Each GPIO can be input or output. Setting a bit will make the corresponding pin input.
-		Clearing it - output. 
-	
+
+	\subsection{Serial number}
+
+		This is unique serial number. The length is 4 bytes.
+
 		\begin{tabular}{ l c }
 			Address: & 0x02 \\
+			Default: & - \\
+		\end{tabular}
+
+		\begin{figure}[H]
+			\centering
+			\begin{bytefield}[
+				bitwidth=0.1\linewidth]{8}
+				\bitheader[endianness=big, bitformatting={\small\bfseries}]{0-7} \\
+				\bitbox{8}{SN [31:24]} \\
+				\bitbox{8}{SN [23:16]} \\
+				\bitbox{8}{SN [15:8]} \\
+				\bitbox{8}{SN [7:0]}
+			\end{bytefield}
+			\caption{Serial number register}
+			\label{reg:serial}
+		\end{figure}
+
+	\subsection{Pin function}
+
+		Some of the GPIOs can be configure as alternative function: DAC and ADC.
+		The register allows this to be configured. By default all function is GPIO.
+
+		\begin{tabular}{ l c }
+			Address: & 0x06 \\
 			Default: & 0x00 \\
 		\end{tabular}
-		
+
+		\begin{figure}[H]
+			\centering
+			\begin{bytefield}[
+				bitwidth=0.1\linewidth]{8}
+				\bitheader[endianness=big, bitformatting={\small\bfseries}]{0-7} \\
+				\bitboxes{1}{{-} {-} {-} {-} {-} {FUN2} {-} {FUN0}}
+			\end{bytefield}
+			\caption{Pin function register}
+			\label{reg:pin_func}
+		\end{figure}
+
+		\begin{itemize}
+			\item \textbf{FUN2}: PIN2 function control bit
+			\begin{itemize}
+				\item 1: Setup PIN2 as ADC
+				\item 0: Setup PIN2 as GPIO
+			\end{itemize}
+			\item \textbf{FUN0}: PIN0 data direction control bit
+			\begin{itemize}
+				\item 1: Setup PIN0 as DAC
+				\item 0: Setup PIN0 as GPIO
+			\end{itemize}
+		\end{itemize}
+
+
+	\subsection{Data direction}
+
+		Each GPIO can be input or output. Setting a bit will make the corresponding pin input.
+		Clearing it - output.
+
+		\begin{tabular}{ l c }
+			Address: & 0x07 \\
+			Default: & 0x00 \\
+		\end{tabular}
+
 		\begin{figure}[H]
 			\centering
 			\begin{bytefield}[
@@ -173,7 +239,7 @@
 			\caption{Data direction register}
 			\label{reg:data_dir}
 		\end{figure}
-		
+
 		\begin{itemize}
 			\item \textbf{DIR7}: GPIO7 data direction control bit
 			\begin{itemize}
@@ -215,18 +281,18 @@
 				\item 1: Setup GPIO0 as input
 				\item 0: Setup GPIO0 as output
 			\end{itemize}
-			
+
 		\end{itemize}
-		
+
 	\subsection{Input data}
-		
+
 		This register holds input levels.
-			
+
 		\begin{tabular}{ l c }
-			Address: & 0x03 \\
+			Address: & 0x08 \\
 			Default: & - - - - \\
 		\end{tabular}
-			
+
 		\begin{figure}[H]
 			\centering
 			\begin{bytefield}[
@@ -237,7 +303,7 @@
 			\caption{Input data register}
 			\label{reg:input_value}
 		\end{figure}
-		
+
 		\begin{itemize}
 			\item \textbf{IN7}: GPIO7 input value
 			\begin{itemize}
@@ -280,17 +346,17 @@
 				\item 1: Input level on GPIO0 is high
 			\end{itemize}
 		\end{itemize}
-		
-		
+
+
 	\subsection{Output data}
-		
+
 		This register sets output GPIO level.
-		
+
 		\begin{tabular}{ l c }
-			Address: & 0x04 \\
+			Address: & 0x09 \\
 			Default: & 0x00 \\
 		\end{tabular}
-		
+
 		\begin{figure}[H]
 			\centering
 			\begin{bytefield}[
@@ -301,7 +367,7 @@
 			\caption{Output data register}
 			\label{reg:output_value}
 		\end{figure}
-		
+
 		\begin{itemize}
 			\item \textbf{OUT7}: GPIO7 output value
 			\begin{itemize}
@@ -344,22 +410,22 @@
 				\item 1: Drive GPIO high
 			\end{itemize}
 		\end{itemize}
-			
+
 
 	\subsection{Pull-up enable}
-	
+
 	All GPIOs has internal weak pull-up resistors. They are enabled by default, to minimize
 	noise and power consumption. The can be disabled by either writing 0 to the corresponding
 	bit or making the direction output.
 	\par
 	Special case is when GPIO is configure as open-drain. If the bit for given GPIO is set, then
-	the pull-up is enabled is DAT bit is set. On DAT clear, the pull-up becomes inactive. 
-	
+	the pull-up is enabled is DAT bit is set. On DAT clear, the pull-up becomes inactive.
+
 	\begin{tabular}{ l c }
-		Address: & 0x05 \\
+		Address: & 0x0A \\
 		Default: & 0xFF \\
 	\end{tabular}
-	
+
 	\begin{figure}[H]
 		\centering
 		\begin{bytefield}[
@@ -370,7 +436,7 @@
 		\caption{Pull-up control register}
 		\label{reg:pullup}
 	\end{figure}
-	
+
 	\begin{itemize}
 		\item \textbf{PU7}: GPIO7 data direction control bit
 		\begin{itemize}
@@ -412,17 +478,17 @@
 			\item 0: Disables GPIO0 internal pull-up resistor
 			\item 1: Enables GPIO0 internal pull-up resistor
 		\end{itemize}
-	\end{itemize}	
-	
+	\end{itemize}
+
 	\subsection{Output mode}
-	
+
 	All outputs can be configured either as push-pull or open-drain.
-	
+
 	\begin{tabular}{ l c }
-		Address: & 0x06 \\
+		Address: & 0x0B \\
 		Default: & 0x00 \\
 	\end{tabular}
-	
+
 	\begin{figure}[H]
 		\centering
 		\begin{bytefield}[
@@ -433,7 +499,7 @@
 		\caption{Output mode control register}
 		\label{reg:output_mode}
 	\end{figure}
-	
+
 	\begin{itemize}
 		\item \textbf{OM7}: GPIO7 output mode control bit
 		\begin{itemize}
@@ -476,17 +542,17 @@
 			\item 1: Drive GPIO0 as open-drain
 		\end{itemize}
 	\end{itemize}
-	
-	
+
+
 	\subsection{Input buffer}
-	
+
 	Input levels can be configured for either CMOS or TTL operation.
-	
+
 	\begin{tabular}{ l c }
-		Address: & 0x07 \\
+		Address: & 0x0C \\
 		Default: & 0xFF \\
 	\end{tabular}
-	
+
 	\begin{figure}[H]
 		\centering
 		\begin{bytefield}[
@@ -497,7 +563,7 @@
 		\caption{Input buffer control register}
 		\label{reg:input_buffer}
 	\end{figure}
-	
+
 	\begin{itemize}
 		\item \textbf{IB7}: GPIO7 input buffer control bit
 		\begin{itemize}
@@ -540,14 +606,14 @@
 			\item 1: CMOS ST input on GPIO0
 		\end{itemize}
 	\end{itemize}
-	
+
 	\subsection{Input slew-rate control}
-	
+
 	\begin{tabular}{ l c }
-		Address: & 0x08 \\
+		Address: & 0x0D \\
 		Default: & 0xFF \\
 	\end{tabular}
-	
+
 	\begin{figure}[H]
 		\centering
 		\begin{bytefield}[
@@ -558,7 +624,7 @@
 		\caption{Input slew-rate control register}
 		\label{reg:input_slew}
 	\end{figure}
-	
+
 	\begin{itemize}
 		\item \textbf{SR7}: GPIO7 input slew-rate control bit
 		\begin{itemize}
@@ -600,9 +666,9 @@
 			\item 0: Port pin slews at maximum rate
 			\item 1: Port pin slew rate is limited
 		\end{itemize}
-		
+
 	\end{itemize}
-	
-	
+
+
 
 \end{document}

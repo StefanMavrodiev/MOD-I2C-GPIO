@@ -90,6 +90,8 @@ void InitApp(void)
     /* Disable ANALOG function */
     ANSELA = 0;
     ANSELC = 0;
+    
+    __InitMSSP();
 
 }
 

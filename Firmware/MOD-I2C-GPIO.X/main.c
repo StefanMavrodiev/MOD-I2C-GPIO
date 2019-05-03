@@ -27,13 +27,14 @@
  * increase. If requested register is outside regmap, the pointer will 
  * retrun dummy byte.
  */
-struct registers regmap;
+struct registers regmap, current_regmap;
 
 uint8_t *pointer = (uint8_t *)&regmap;
 
 eeprom uint32_t serial = 0x12345678;
-struct registers current;
 enum RequestType req;
+
+
 
 /******************************************************************************/
 /* Main Program                                                               */
@@ -41,13 +42,13 @@ enum RequestType req;
 void main(void)
 {
     /* Configure the oscillator for the device */
-#ifndef __SIM__
     ConfigureOscillator();
-#endif
 
+    /* Configure default values */
     regmap.device = DEVICE_ID;
     regmap.firmware = FIRMWARE_VERSION;
     regmap.serial = serial;
+    regmap.function = 0x00;                 /* All GPIOs */
     regmap.dir = 0xFF;                      /* All inputs */
     regmap.input = 0x00;                    /* Input */
     regmap.output = 0x00;                   /* Output */
@@ -55,61 +56,60 @@ void main(void)
     regmap.mode = 0x00;                     /* All push-pull mode */
     regmap.buffer = 0xFF;                   /* All ST enabled inputs */
     regmap.slew = 0xFF;                     /* Slew rate is limited */
-#ifdef __SIM__
-    regmap.interrupt_enable = 0x01;         /* All interrupts are disabled */
-    regmap.interrupt_sense = 0x0003;
-#else
+ 
     regmap.interrupt_enable = 0x00;         /* All interrupts are disabled */
     regmap.interrupt_sense = 0x0000;
-#endif
     regmap.interrupt_status = 0x00;
 
     /* Initialize I/O and Peripherals for application */
     InitApp();    
     
     /* Copy default values to current settings */
-    memcpy(&current, &regmap, sizeof(struct registers));
+    memcpy(&current_regmap, &regmap, sizeof(struct registers));
 
     while(1)
     {
         /* Check for change in registers */
-        if(memcmp(&regmap, &current, sizeof(struct registers))) {
+        if(memcmp(&regmap, &current_regmap, sizeof(struct registers))) {
             
             /* Interrupts must be disabled during pins setting */          
-            INTCONbits.GIE = 0;
+//            INTCONbits.GIE = 0;
+            /* Disabled SSPI interrupts */
+            PIE1bits.SSP1IE = 0;
             
             /* Check for direction changes */
-            if(regmap.dir != current.dir) {
+            if(regmap.dir != current_regmap.dir) {
                 SetGPIODirection();
-                current.dir = regmap.dir;
+                current_regmap.dir = regmap.dir;
             }
             
-            if(regmap.output != current.output) {
+            if(regmap.output != current_regmap.output) {
                 SetGPIOOutput();
-                current.output = regmap.output;
+                current_regmap.output = regmap.output;
             }
             
-            if(regmap.pullup != current.pullup) {
+            if(regmap.pullup != current_regmap.pullup) {
                 SetGPIOPullUp();
-                current.pullup = regmap.pullup;
+                current_regmap.pullup = regmap.pullup;
             }
             
-            if(regmap.mode != current.mode) {
+            if(regmap.mode != current_regmap.mode) {
                 SetGPIOMode();
-                current.mode = regmap.mode;
+                current_regmap.mode = regmap.mode;
             }
             
-            if(regmap.buffer != current.buffer) {
+            if(regmap.buffer != current_regmap.buffer) {
                 SetGPIOBuffer();
-                current.buffer = regmap.buffer;
+                current_regmap.buffer = regmap.buffer;
             }
             
-            if(regmap.slew != current.slew) {
+            if(regmap.slew != current_regmap.slew) {
                 SetGPIOSlew();
-                current.slew = regmap.slew;
+                current_regmap.slew = regmap.slew;
             }            
              
-             INTCONbits.GIE = 1;
+            PIE1bits.SSP1IE = 1;
+//             INTCONbits.GIE = 1;
         }
         
         CLRWDT();

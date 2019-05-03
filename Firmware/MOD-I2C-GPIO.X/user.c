@@ -64,24 +64,28 @@ static void __InitInterrupts(void);
  * This is a bit complicated, but this way we can guarantee that direction
  * will not toggle if there is no change in direction register.
  */
-static void __SetRegister(volatile uint8_t *reg, uint8_t *data)
+static void __SetRegister(volatile unsigned char *reg, uint8_t *data)
 {
+    volatile unsigned char *reg2;
+    uint8_t sfr[2];
     uint8_t temp;
     
-    /* Disable interrupts */
-    INTCONbits.GIE = 0;
-    
     /* Configure SFR */
-    temp = *data & 0x07 | ((*data & 0x08) << 1);
-    *reg &= ~((*reg ^ temp) & 0x17);
-    *reg |= temp;
+    sfr[0] = *reg;
+    temp = (uint8_t)((*data & 0x07) | ((*data & 0x08) << 1));
+    sfr[0] &= (uint8_t)(~((sfr[0] ^ temp) & 0x17));
+    sfr[0] |= temp;
     
     /* Configure SFR + 2 */
-    reg += 2;
-    temp = (*data & 0xF0) >> 2;
+    reg2 = reg + 2;
+    sfr[1] = *reg2;
+    temp = (uint8_t)((*data & 0xF0) >> 2);
     
-    *reg &= ~((*reg ^ temp) & 0x3C);
-    *reg |= temp;
+    sfr[1] &= (uint8_t)(~((sfr[1] ^ temp) & 0x3C));
+    sfr[1] |= temp;
+    
+    *reg = sfr[0];
+    *reg2 = sfr[1];
 }
 
 /**
@@ -95,10 +99,10 @@ static void __GetRegister(volatile uint8_t *reg, uint8_t *data)
     uint8_t temp;
     
     /* Read PORTA */
-    temp = (*reg & 0x07) | ((*reg & 0x10) >> 1);
+    temp = (uint8_t)((*reg & 0x07) | ((*reg & 0x10) >> 1));
     
     /* Read PORTC */
-    temp |= (*reg & 0x3C) << 2;
+    temp |= (uint8_t)((*reg & 0x3C) << 2);
     
     *data = temp;
 }
@@ -134,13 +138,15 @@ static void __InitGPIO(void)
     
     /* Configure direction */
     TRISAbits.TRISA5 = 0;
-    
+
+#if 0
     /* Make OD */
     ODCONAbits.ODCA5 = 1;
+#endif
     
     /* Configure value */
     INT_DEASSERT();
-    
+
     SetGPIODirection();
     SetGPIOOutput();
     SetGPIOMode();

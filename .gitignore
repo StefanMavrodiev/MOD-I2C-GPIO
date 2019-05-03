@@ -62,3 +62,7 @@ dkms.conf
 /Firmware/MOD-I2C-GPIO.X/build/XC8_PIC16LF18324_SIM/
 /Firmware/MOD-I2C-GPIO.X/build/XC8_PIC16LF18324_NO_BOOT/
 /Firmware/MOD-I2C-GPIO.X/dist/XC8_PIC16LF18324_NO_BOOT/
+/Firmware/MOD-I2C-GPIO-BL.X/dist/
+/Firmware/MOD-I2C-GPIO-BL.X/build/
+/Firmware/MOD-I2C-GPIO.X/dist/
+/Firmware/MOD-I2C-GPIO.X/build/
