@@ -95,3 +95,52 @@ void InitApp(void)
 
 }
 
+uint16_t AppChecksum(void)
+{
+    uint16_t checksum = 0;
+    uint16_t i;
+    
+    NVMADRL = FLASH_START_ADDR & 0x00FF;
+    NVMADRH = (FLASH_START_ADDR & 0xFF00 ) >> 8;
+    NVMCON1 = 0x80;
+    
+    for (i = 0; i < FLASH_END_ADDR - FLASH_START_ADDR - 2; i++)
+    {
+        NVMCON1bits.RD = 1;
+        NOP();
+        NOP();
+        checksum += NVMDAT;
+        
+        if ((++NVMADRL) == 0x00)
+        {
+            ++NVMADRH;
+        }
+     }
+     
+    return checksum;
+}
+
+uint16_t StoredChecksum(void)
+{
+    uint16_t checksum = 0;
+    
+    NVMADRL = (FLASH_END_ADDR - 2) & 0x00FF;
+    NVMADRH = ((FLASH_START_ADDR - 2) & 0xFF00) >> 8;
+    NVMCON1bits.RD = 1;
+    NOP();
+    NOP();
+    
+    checksum = NVMDATL;
+    if ((++NVMADRL) == 0x00)
+        ++NVMADRH;
+    
+    NVMCON1bits.RD = 1;
+    NOP();
+    NOP();
+    
+    checksum += (((uint16_t)NVMDATL) << 8);
+    
+    return checksum;
+
+}
+

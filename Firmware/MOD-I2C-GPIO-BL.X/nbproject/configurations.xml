@@ -30,7 +30,7 @@
         <targetDevice>PIC16LF18324</targetDevice>
         <targetHeader></targetHeader>
         <targetPluginBoard></targetPluginBoard>
-        <platformTool>snap</platformTool>
+        <platformTool>Simulator</platformTool>
         <languageToolchain>XC8</languageToolchain>
         <languageToolchainVersion>2.00</languageToolchainVersion>
         <platform>2</platform>
@@ -46,6 +46,21 @@
         <archiverTool>
         </archiverTool>
         <loading>
+          <makeArtifact PL="../MOD-I2C-GPIO.X"
+                        CT="1"
+                        CN="XC8_PIC16LF18324"
+                        AC="true"
+                        BL="true"
+                        WD="../MOD-I2C-GPIO.X"
+                        BC="${MAKE}  -f Makefile CONF=XC8_PIC16LF18324"
+                        DBC="${MAKE}  -f Makefile CONF=XC8_PIC16LF18324 TYPE_IMAGE=DEBUG_RUN"
+                        CC="rm -rf &quot;build/XC8_PIC16LF18324&quot; &quot;dist/XC8_PIC16LF18324&quot;"
+                        OP="dist/XC8_PIC16LF18324/production/MOD-I2C-GPIO.X.production.hex"
+                        DOP="dist/XC8_PIC16LF18324/debug/MOD-I2C-GPIO.X.debug.elf"
+                        FL="dist/XC8_PIC16LF18324/production/MOD-I2C-GPIO.X.production.hex"
+                        PD="dist/XC8_PIC16LF18324/production/MOD-I2C-GPIO.X.production.elf"
+                        DD="dist/XC8_PIC16LF18324/debug/MOD-I2C-GPIO.X.debug.elf">
+          </makeArtifact>
           <useAlternateLoadableFile>false</useAlternateLoadableFile>
           <parseOnProdLoad>true</parseOnProdLoad>
           <alternateLoadableFile></alternateLoadableFile>
@@ -187,6 +202,7 @@
         <property key="codecoverage.enabled" value="Disable"/>
         <property key="codecoverage.enableoutputtofile" value="false"/>
         <property key="codecoverage.outputfile" value=""/>
+        <property key="codecoverage.report" value=""/>
         <property key="oscillator.auxfrequency" value="120"/>
         <property key="oscillator.auxfrequencyunit" value="Mega"/>
         <property key="oscillator.frequency" value="1"/>
@@ -207,13 +223,6 @@
         <property key="periphComp6.gte" value="gt"/>
         <property key="reset.scl" value="false"/>
         <property key="reset.type" value="MCLR"/>
-        <property key="tracecontrol.include.timestamp" value="summarydataenabled"/>
-        <property key="tracecontrol.select" value="0"/>
-        <property key="tracecontrol.stallontracebufferfull" value="false"/>
-        <property key="tracecontrol.timestamp" value="0"/>
-        <property key="tracecontrol.tracebufmax" value="546000"/>
-        <property key="tracecontrol.tracefile" value="defmplabxtrace.log"/>
-        <property key="tracecontrol.traceresetonrun" value="false"/>
         <property key="uart0io.output" value="window"/>
         <property key="uart0io.outputfile" value=""/>
         <property key="uart0io.uartioenabled" value="false"/>
@@ -354,6 +363,12 @@
         <property key="warningmessagebreakoptions.W0113_SIM_WRITE_TO_PROTECTED_SFR"
                   value="report"/>
         <property key="warningmessagebreakoptions.W0114_SIM_INVALID_KEY" value="report"/>
+        <property key="warningmessagebreakoptions.W0115_SIM_FAILED_TO_PARSE_DEVICE_FILE"
+                  value="report"/>
+        <property key="warningmessagebreakoptions.W0116_SIM_STACK_OVERFLOW"
+                  value="report"/>
+        <property key="warningmessagebreakoptions.W0117_SIM_STACK_UNDERFLOW"
+                  value="report"/>
         <property key="warningmessagebreakoptions.W0201_ADC_NO_STIMULUS_FILE"
                   value="report"/>
         <property key="warningmessagebreakoptions.W0202_ADC_GO_DONE_BIT" value="report"/>
@@ -600,7 +615,7 @@
         <property key="communication.interface"
                   value="${communication.interface.default}"/>
         <property key="communication.speed" value="${communication.speed.default}"/>
-        <property key="debugoptions.useswbreakpoints" value="false"/>
+        <property key="debugoptions.useswbreakpoints" value="true"/>
         <property key="memories.aux" value="false"/>
         <property key="memories.bootflash" value="true"/>
         <property key="memories.configurationmemory" value="true"/>
