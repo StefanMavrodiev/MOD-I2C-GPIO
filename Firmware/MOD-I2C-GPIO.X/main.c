@@ -35,12 +35,12 @@ eeprom uint32_t serial = 0x12345678;
 enum RequestType req;
 
 
-
 /******************************************************************************/
 /* Main Program                                                               */
 /******************************************************************************/
 void main(void)
 {
+
     /* Configure the oscillator for the device */
     ConfigureOscillator();
 

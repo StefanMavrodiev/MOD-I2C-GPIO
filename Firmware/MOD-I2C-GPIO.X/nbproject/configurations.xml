@@ -98,7 +98,7 @@
       </HI-TECH-COMP>
       <HI-TECH-LINK>
         <property key="additional-options-checksum" value=""/>
-        <property key="additional-options-code-offset" value=""/>
+        <property key="additional-options-code-offset" value="0x200"/>
         <property key="additional-options-command-line" value=""/>
         <property key="additional-options-errata" value=""/>
         <property key="additional-options-extend-address" value="false"/>
@@ -109,7 +109,7 @@
         <property key="calibrate-oscillator-value" value="0x3400"/>
         <property key="clear-bss" value="true"/>
         <property key="code-model-external" value="wordwrite"/>
-        <property key="code-model-rom" value=""/>
+        <property key="code-model-rom" value="default,-0-1ff"/>
         <property key="create-html-files" value="false"/>
         <property key="data-model-ram" value=""/>
         <property key="data-model-size-of-double" value="24"/>
@@ -128,7 +128,7 @@
         <property key="fill-flash-options-increment" value=""/>
         <property key="fill-flash-options-seq" value=""/>
         <property key="fill-flash-options-what" value="0"/>
-        <property key="format-hex-file-for-download" value="false"/>
+        <property key="format-hex-file-for-download" value="true"/>
         <property key="initialize-data" value="true"/>
         <property key="input-libraries" value="libm"/>
         <property key="keep-generated-startup.as" value="false"/>

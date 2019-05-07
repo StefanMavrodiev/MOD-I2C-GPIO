@@ -39,12 +39,14 @@ static inline void __IOCInterrupt(void)
     volatile uint8_t mask;
     volatile uint8_t i;    
     
-    /* Clear interrupt flag */
-    PIR0bits.IOCIF = 0;
-    
     /* Store current interrupt flags */
     ioca = IOCAF;
     iocc = IOCCF;
+    
+    /* Clear IOC flags */
+    IOCAF &= (uint8_t)(~(ioca));
+    IOCCF &= (uint8_t)(~(iocc));
+    PIR0bits.IOCIF = 0;
     
     /* Read pin inputs */
     data = (uint8_t)((PORTA & 0x07) | ((PORTA & 0x10) >> 1));
@@ -90,11 +92,7 @@ static inline void __IOCInterrupt(void)
                 }                
             }            
         }
-    }
-    
-    /* Clear IOC flags */
-    IOCAF &= (uint8_t)(~(ioca));
-    IOCCF &= (uint8_t)(~(iocc));           
+    }          
 }
 /**
  * @brief Handle MSSP interrupts
